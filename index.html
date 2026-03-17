@@ -1,40 +1,121 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
+
 <head>
     <meta charset="UTF-8">
-    <title>原神/星铁圣遗物概率计算</title>
+    <title>星铁/原神圣遗物概率计算</title>
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     <link rel="stylesheet" href="https://unpkg.com/element-plus/dist/index.css" />
     <script src="https://unpkg.com/element-plus"></script>
     <script src="https://unpkg.com/@element-plus/icons-vue"></script>
     <style>
-        body { margin: 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; background-color: #f5f7fa; }
-        .el-header { background-color: #fff; border-bottom: 1px solid #dcdfe6; display: flex; align-items: center; font-size: 20px; font-weight: bold; color: #409EFF; }
-        .el-aside { background-color: #fff; height: calc(100vh - 60px); border-right: 1px solid #e6e6e6; }
-        .el-main { height: calc(100vh - 60px); padding: 24px; }
-        .config-card { margin-bottom: 20px; border-radius: 12px; }
-        .result-box { background: #fff; padding: 20px; border-radius: 8px; border: 1px solid #e4e7ed; }
+        body {
+            margin: 0;
+            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            background-color: #f5f7fa;
+        }
+
+        .el-header {
+            background-color: #fff;
+            border-bottom: 1px solid #dcdfe6;
+            display: flex;
+            align-items: center;
+            font-size: 20px;
+            font-weight: bold;
+            color: #409EFF;
+        }
+
+        .el-aside {
+            background-color: #fff;
+            height: calc(100vh - 60px);
+            border-right: 1px solid #e6e6e6;
+        }
+
+        .el-main {
+            height: calc(100vh - 60px);
+            padding: 24px;
+            overflow-y: auto;
+        }
+
+        .config-card {
+            margin-bottom: 20px;
+            border-radius: 12px;
+        }
+
+        .result-box {
+            background: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid #e4e7ed;
+        }
+
         /* 表格美化 */
-        .custom-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-        .custom-table th { background-color: #f8f9fb; color: #909399; font-weight: 600; padding: 12px; border-bottom: 2px solid #ebeef5; text-align: left; }
-        .custom-table td { padding: 12px; border-bottom: 1px solid #ebeef5; color: #606266; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; }
-        .day-tag { color: #909399; font-size: 12px; margin-left: 8px; }
-        .prob-value { font-weight: bold; color: #409EFF; }
-        .summary-text { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; }
+        .custom-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+
+        .custom-table th {
+            background-color: #f8f9fb;
+            color: #909399;
+            font-weight: 600;
+            padding: 12px;
+            border-bottom: 2px solid #ebeef5;
+            text-align: left;
+        }
+
+        .custom-table td {
+            padding: 12px;
+            border-bottom: 1px solid #ebeef5;
+            color: #606266;
+            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+        }
+
+        .day-tag {
+            color: #909399;
+            font-size: 12px;
+            margin-left: 8px;
+        }
+
+        .prob-value {
+            font-weight: bold;
+            color: #409EFF;
+        }
+
+        .summary-text {
+            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+        }
     </style>
 </head>
+
 <body>
     <div id="app">
         <el-container>
             <el-header>原神/星铁圣遗物掉落概率计算</el-header>
             <el-container>
                 <el-aside width="240px">
-                    <el-menu :default-active="activeMenu" @select="i => activeMenu = i" :default-openeds="['hsr']">
+                    <el-menu :default-active="activeMenu" @select="i => activeMenu = i"
+                        :default-openeds="['hsr', 'gs']">
                         <el-sub-menu index="hsr">
-                            <template #title><el-icon><star /></el-icon><span>星穹铁道</span></template>
+                            <template #title>
+                                <img src="./assets/hsr-icon.png"
+                                    style="width: 38px; height: 38px; margin-right: 10px; vertical-align: middle;">
+                                <span>星穹铁道</span>
+                            </template>
                             <el-menu-item index="hsr-single-base">单件胚子掉落概率</el-menu-item>
                             <el-menu-item index="hsr-single-max">单件满级词条分布概率</el-menu-item>
                             <el-menu-item index="hsr-set-max">套装满级词条分布概率</el-menu-item>
+                        </el-sub-menu>
+                        <el-sub-menu index="gs">
+                            <template #title>
+                                <img src="./assets/gs-icon.png"
+                                    style="width: 38px; height: 38px; margin-right: 10px; vertical-align: middle;">
+                                <span>原神</span>
+                            </template>
+                            <el-menu-item index="gs-single-base">单件胚子掉落概率</el-menu-item>
+                            <el-menu-item index="gs-single-max">单件满级词条分布概率</el-menu-item>
+                            <el-menu-item index="gs-set-max">套装满级词条分布概率</el-menu-item>
                         </el-sub-menu>
                     </el-menu>
                 </el-aside>
@@ -43,91 +124,222 @@
                     <div v-show="activeMenu.includes('hsr-single')">
                         <el-row :gutter="20">
                             <el-col :span="10">
-                                <el-card class="config-card" header="配置参数">
+                                <el-card class="config-card" header="星铁 - 配置参数">
                                     <el-form label-width="90px">
-                                        <el-form-item label="部位"><el-select v-model="sCfg.part" style="width:100%"><el-option v-for="p in parts" :value="p"></el-option></el-select></el-form-item>
-                                        <el-form-item label="主属性"><el-select v-model="sCfg.main" style="width:100%"><el-option v-for="(v,k) in mainProbs[sCfg.part]" :label="nameMap[k]" :value="k"></el-option></el-select></el-form-item>
+                                        <el-form-item label="部位"><el-select v-model="sCfg.part"
+                                                style="width:100%"><el-option v-for="p in parts"
+                                                    :value="p"></el-option></el-select></el-form-item>
+                                        <el-form-item label="主属性"><el-select v-model="sCfg.main"
+                                                style="width:100%"><el-option v-for="(v,k) in mainProbs[sCfg.part]"
+                                                    :label="nameMap[k]"
+                                                    :value="k"></el-option></el-select></el-form-item>
                                         <el-form-item label="有效词条">
                                             <el-checkbox-group v-model="sCfg.subs">
-                                                <el-checkbox v-for="i in weights" :label="i.code">{{ nameMap[i.code] }}</el-checkbox>
+                                                <el-checkbox v-for="i in weights" :label="i.code">{{ nameMap[i.code]
+                                                    }}</el-checkbox>
                                             </el-checkbox-group>
                                         </el-form-item>
-                                        <el-button type="primary" @click="runSingle" :loading="loading" style="width:100%">计算</el-button>
+                                        <el-button type="primary" @click="runSingle" :loading="loading"
+                                            style="width:100%">计算</el-button>
                                     </el-form>
                                 </el-card>
                             </el-col>
                             <el-col :span="14">
-                                <el-card class="config-card" :header="activeMenu === 'hsr-single-base' ? '初始掉落分布 (+0)' : '强化结果分布 (+15)'">
+                                <el-card class="config-card"
+                                    :header="activeMenu === 'hsr-single-base' ? '初始掉落分布 (+0)' : '强化结果分布 (+15)'">
                                     <div v-if="!sRes" style="text-align:center;color:#999;padding:40px">等待计算...</div>
                                     <div v-else class="result-box">
                                         <table class="custom-table">
-                                            <thead><tr><th>目标词条数</th><th style="text-align:right">概率 / 期望天数 (12件/天)</th></tr></thead>
+                                            <thead>
+                                                <tr>
+                                                    <th>目标词条数</th>
+                                                    <th style="text-align:right">概率 / 期望天数 (12件/天)</th>
+                                                </tr>
+                                            </thead>
                                             <tbody>
-                                                <tr v-for="(p, k) in (activeMenu === 'hsr-single-base' ? sRes.initP : sRes.finalP)" v-show="p > 0">
+                                                <tr v-for="(p, k) in (activeMenu === 'hsr-single-base' ? sRes.initP : sRes.finalP)"
+                                                    v-show="p > 0">
                                                     <td>命中 <b>{{ k }}</b> 词条</td>
                                                     <td align="right">
                                                         <span class="prob-value">{{ (p*100).toFixed(4) }}%</span>
-                                                        <el-tag size="small" effect="plain" class="day-tag" type="info">{{ calcDays(p) }}天</el-tag>
+                                                        <el-tag size="small" effect="plain" class="day-tag"
+                                                            type="info">{{ calcDays(p) }}天</el-tag>
                                                     </td>
                                                 </tr>
                                             </tbody>
                                         </table>
                                     </div>
-                                </el-col>
-                            </el-row>
-                        </div>
+                                </el-card>
+                            </el-col>
+                        </el-row>
+                    </div>
 
-                        <div v-show="activeMenu === 'hsr-set-max'">
-                            <el-row :gutter="20">
-                                <el-col :span="9">
-                                    <el-card class="config-card" header="毕业规划设定">
-                                        <el-form label-position="top">
-                                            <el-form-item label="单件期望出货率 (%)">
-                                                <el-input-number 
-                                                    v-model="pCfg.target" :min="0.01" :max="100" :step="0.1"style="width:100%">
-                                                </el-input-number>
-                                            </el-form-item>
-                                            <el-form-item v-for="p in partsOrder" :label="p">
-                                                <el-select v-model="pCfg.mains[p]" style="width:100%"><el-option v-for="(v,k) in mainProbs[p]" :label="nameMap[k]" :value="k"></el-option></el-select>
-                                            </el-form-item>
-                                            <el-form-item label="统一有效词条">
-                                                <el-checkbox-group v-model="pCfg.subs">
-                                                    <el-checkbox v-for="i in weights" :label="i.code">{{ nameMap[i.code] }}</el-checkbox>
-                                                </el-checkbox-group>
-                                            </el-form-item>
-                                            <el-button type="success" @click="runPlan" :loading="loading" style="width:100%">计算</el-button>
-                                        </el-form>
-                                    </el-card>
-                                </el-col>
-                                <el-col :span="15">
-                                    <el-card class="config-card" header="套装词条数概率分布">
-                                        <div v-if="!pRes" style="text-align:center;color:#999;padding:40px">请配置参数进行分析</div>
-                                        <div v-else>
-                                            <el-table :data="pRes.table" border stripe style="width: 100%" :header-cell-style="{background:'#f5f7fa'}">
-                                                <el-table-column prop="part" label="部位" width="80"></el-table-column>
-                                                <el-table-column prop="main" label="主属性"></el-table-column>
-                                                <el-table-column label="推荐词条" align="center">
-                                                    <template #default="s"><span>{{ s.row.k }}</span></template>
-                                                </el-table-column>
-                                                <el-table-column label="累积概率" align="right" width="120">
-                                                    <template #default="s">{{ s.row.pStr }}</template>
-                                                </el-table-column>
-                                                <el-table-column label="期望天数" align="right" width="100">
-                                                    <template #default="s">
-                                                        <b style="color:#67C23A">{{ s.row.days }}天</b>
-                                                    </template>
-                                                </el-table-column>
-                                            </el-table>
-                                            <div class="summary-text" style="margin-top:20px; padding:15px; background:#f0f9eb; border-radius:8px; color:#67c23a; border:1px solid #e1f3d8; display: flex; align-items: center; justify-content: center;">
-                                                <span style="margin: 0 15px;">
-                                                    全身建议总词条数为 <b style="font-size: 18px; margin: 0 4px;">{{ pRes.total }}</b> 条
-                                                </span>
-                                            </div>
+                    <div v-show="activeMenu === 'hsr-set-max'">
+                        <el-row :gutter="20">
+                            <el-col :span="9">
+                                <el-card class="config-card" header="毕业规划设定">
+                                    <el-form label-position="top">
+                                        <el-form-item label="单件期望出货率 (%)">
+                                            <el-input-number v-model="pCfg.target" :min="0.01" :max="100" :step="0.1"
+                                                style="width:100%"></el-input-number>
+                                        </el-form-item>
+                                        <el-form-item v-for="p in partsOrder" :label="p">
+                                            <el-select v-model="pCfg.mains[p]" style="width:100%"><el-option
+                                                    v-for="(v,k) in mainProbs[p]" :label="nameMap[k]"
+                                                    :value="k"></el-option></el-select>
+                                        </el-form-item>
+                                        <el-form-item label="统一有效词条">
+                                            <el-checkbox-group v-model="pCfg.subs">
+                                                <el-checkbox v-for="i in weights" :label="i.code">{{ nameMap[i.code]
+                                                    }}</el-checkbox>
+                                            </el-checkbox-group>
+                                        </el-form-item>
+                                        <el-button type="success" @click="runPlan" :loading="loading"
+                                            style="width:100%">计算</el-button>
+                                    </el-form>
+                                </el-card>
+                            </el-col>
+                            <el-col :span="15">
+                                <el-card class="config-card" header="套装词条数概率分布">
+                                    <div v-if="!pRes" style="text-align:center;color:#999;padding:40px">请配置参数进行分析</div>
+                                    <div v-else>
+                                        <el-table :data="pRes.table" border stripe style="width: 100%"
+                                            :header-cell-style="{background:'#f5f7fa'}">
+                                            <el-table-column prop="part" label="部位" width="80"></el-table-column>
+                                            <el-table-column prop="main" label="主属性"></el-table-column>
+                                            <el-table-column label="推荐词条" align="center">
+                                                <template #default="s"><span>{{ s.row.k }}</span></template>
+                                            </el-table-column>
+                                            <el-table-column label="累积概率" align="right" width="120">
+                                                <template #default="s">{{ s.row.pStr }}</template>
+                                            </el-table-column>
+                                            <el-table-column label="期望天数" align="right" width="100">
+                                                <template #default="s"><b style="color:#67C23A">{{ s.row.days
+                                                        }}天</b></template>
+                                            </el-table-column>
+                                        </el-table>
+                                        <div class="summary-text"
+                                            style="margin-top:20px; padding:15px; background:#f0f9eb; border-radius:8px; color:#67c23a; border:1px solid #e1f3d8; display: flex; align-items: center; justify-content: center;">
+                                            <span style="margin: 0 15px;">全身建议总词条数为 <b
+                                                    style="font-size: 18px; margin: 0 4px;">{{ pRes.total }}</b>
+                                                条</span>
                                         </div>
-                                    </el-card>
-                                </el-col>
-                            </el-row>
-                        </div>
+                                    </div>
+                                </el-card>
+                            </el-col>
+                        </el-row>
+                    </div>
+
+                    <div v-show="activeMenu.includes('gs-single')">
+                        <el-row :gutter="20">
+                            <el-col :span="10">
+                                <el-card class="config-card" header="原神 - 配置参数">
+                                    <el-form label-width="90px">
+                                        <el-form-item label="部位"><el-select v-model="gsCfg.part"
+                                                style="width:100%"><el-option v-for="p in gsParts"
+                                                    :value="p"></el-option></el-select></el-form-item>
+                                        <el-form-item label="主属性"><el-select v-model="gsCfg.main"
+                                                style="width:100%"><el-option v-for="(v,k) in gsMainProbs[gsCfg.part]"
+                                                    :label="gsNameMap[k]"
+                                                    :value="k"></el-option></el-select></el-form-item>
+                                        <el-form-item label="有效词条">
+                                            <el-checkbox-group v-model="gsCfg.subs">
+                                                <el-checkbox v-for="i in gsWeights" :label="i.code">{{ gsNameMap[i.code]
+                                                    }}</el-checkbox>
+                                            </el-checkbox-group>
+                                        </el-form-item>
+                                        <el-button color="#73d13d" @click="runGsSingle" :loading="loading"
+                                            style="width:100%; color:#fff">计算</el-button>
+                                    </el-form>
+                                </el-card>
+                            </el-col>
+                            <el-col :span="14">
+                                <el-card class="config-card"
+                                    :header="activeMenu === 'gs-single-base' ? '初始掉落分布 (+0)' : '强化结果分布 (+20)'">
+                                    <div v-if="!gsRes" style="text-align:center;color:#999;padding:40px">等待计算...</div>
+                                    <div v-else class="result-box">
+                                        <table class="custom-table">
+                                            <thead>
+                                                <tr>
+                                                    <th>目标词条数</th>
+                                                    <th style="text-align:right">概率 / 期望天数 (9件/天)</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                <tr v-for="(p, k) in (activeMenu === 'gs-single-base' ? gsRes.initP : gsRes.finalP)"
+                                                    v-show="p > 0">
+                                                    <td>命中 <b>{{ k }}</b> 词条</td>
+                                                    <td align="right">
+                                                        <span class="prob-value" style="color:#73d13d">{{
+                                                            (p*100).toFixed(4) }}%</span>
+                                                        <el-tag size="small" effect="plain" class="day-tag"
+                                                            type="success">{{ calcDaysGs(p) }}天</el-tag>
+                                                    </td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </el-card>
+                            </el-col>
+                        </el-row>
+                    </div>
+
+                    <div v-show="activeMenu === 'gs-set-max'">
+                        <el-row :gutter="20">
+                            <el-col :span="9">
+                                <el-card class="config-card" header="毕业规划设定">
+                                    <el-form label-position="top">
+                                        <el-form-item label="单件期望出货率 (%)">
+                                            <el-input-number v-model="gpCfg.target" :min="0.01" :max="100" :step="0.1"
+                                                style="width:100%"></el-input-number>
+                                        </el-form-item>
+                                        <el-form-item v-for="p in gsPartsOrder" :label="p">
+                                            <el-select v-model="gpCfg.mains[p]" style="width:100%"><el-option
+                                                    v-for="(v,k) in gsMainProbs[p]" :label="gsNameMap[k]"
+                                                    :value="k"></el-option></el-select>
+                                        </el-form-item>
+                                        <el-form-item label="统一有效词条">
+                                            <el-checkbox-group v-model="gpCfg.subs">
+                                                <el-checkbox v-for="i in gsWeights" :label="i.code">{{ gsNameMap[i.code]
+                                                    }}</el-checkbox>
+                                            </el-checkbox-group>
+                                        </el-form-item>
+                                        <el-button color="#73d13d" @click="runGsPlan" :loading="loading"
+                                            style="width:100%; color:#fff">计算</el-button>
+                                    </el-form>
+                                </el-card>
+                            </el-col>
+                            <el-col :span="15">
+                                <el-card class="config-card" header="套装词条数概率分布">
+                                    <div v-if="!gpRes" style="text-align:center;color:#999;padding:40px">请配置参数进行分析</div>
+                                    <div v-else>
+                                        <el-table :data="gpRes.table" border stripe style="width: 100%"
+                                            :header-cell-style="{background:'#f5f7fa'}">
+                                            <el-table-column prop="part" label="部位" width="80"></el-table-column>
+                                            <el-table-column prop="main" label="主属性"></el-table-column>
+                                            <el-table-column label="推荐词条" align="center">
+                                                <template #default="s"><span>{{ s.row.k }}</span></template>
+                                            </el-table-column>
+                                            <el-table-column label="累积概率" align="right" width="120">
+                                                <template #default="s">{{ s.row.pStr }}</template>
+                                            </el-table-column>
+                                            <el-table-column label="期望天数" align="right" width="100">
+                                                <template #default="s"><b style="color:#73d13d">{{ s.row.days
+                                                        }}天</b></template>
+                                            </el-table-column>
+                                        </el-table>
+                                        <div class="summary-text"
+                                            style="margin-top:20px; padding:15px; background:#f0f9eb; border-radius:8px; color:#67c23a; border:1px solid #e1f3d8; display: flex; align-items: center; justify-content: center;">
+                                            <span style="margin: 0 15px;">全身建议总词条数为 <b
+                                                    style="font-size: 18px; margin: 0 4px;">{{ gpRes.total }}</b>
+                                                条</span>
+                                        </div>
+                                    </div>
+                                </el-card>
+                            </el-col>
+                        </el-row>
+                    </div>
+
                 </el-main>
             </el-container>
         </el-container>
@@ -136,45 +348,46 @@
     <script>
         const { createApp, ref, reactive, toRaw, watch } = Vue;
 
+        // ================= 星铁 数据字典 =================
         const NAME_MAP = { "SM": "生命", "GJ": "攻击", "FY": "防御", "SMB": "生命%", "GJB": "攻击%", "FYB": "防御%", "SD": "速度", "BJL": "暴击率", "BJSH": "暴击伤害", "XGMZ": "效果命中", "XGDK": "效果抵抗", "JPTG": "击破特攻", "CN": "能量填充", "ZLYZ": "治疗量", "属性伤害": "属性增伤" };
-        const MAIN_PROBS = { "头部": {"SM": 1}, "手部": {"GJ": 1}, "躯干": {"SMB": 0.2, "GJB": 0.2, "FYB": 0.2, "BJL": 0.1, "BJSH": 0.1, "ZLYZ": 0.1, "XGMZ": 0.1}, "脚部": {"SMB": 0.2917, "GJB": 0.2917, "FYB": 0.2917, "SD": 0.125}, "连结绳": {"SMB": 0.2633, "GJB": 0.2633, "FYB": 0.2633, "JPTG": 0.15, "CN": 0.06}, "位面球": {"SMB": 0.1233, "GJB": 0.1233, "FYB": 0.1233, "属性伤害": 0.09} };
-        const WEIGHTS = [ {code:'SM',w:100}, {code:'GJ',w:100}, {code:'FY',w:100}, {code:'SMB',w:100}, {code:'GJB',w:100}, {code:'FYB',w:100}, {code:'SD',w:40}, {code:'BJL',w:60}, {code:'BJSH',w:60}, {code:'XGMZ',w:80}, {code:'XGDK',w:80}, {code:'JPTG',w:80} ];
+        const MAIN_PROBS = { "头部": { "SM": 1 }, "手部": { "GJ": 1 }, "躯干": { "SMB": 0.2, "GJB": 0.2, "FYB": 0.2, "BJL": 0.1, "BJSH": 0.1, "ZLYZ": 0.1, "XGMZ": 0.1 }, "脚部": { "SMB": 0.2917, "GJB": 0.2917, "FYB": 0.2917, "SD": 0.125 }, "连结绳": { "SMB": 0.2633, "GJB": 0.2633, "FYB": 0.2633, "JPTG": 0.15, "CN": 0.06 }, "位面球": { "SMB": 0.1233, "GJB": 0.1233, "FYB": 0.1233, "属性伤害": 0.09 } };
+        const WEIGHTS = [{ code: 'SM', w: 100 }, { code: 'GJ', w: 100 }, { code: 'FY', w: 100 }, { code: 'SMB', w: 100 }, { code: 'GJB', w: 100 }, { code: 'FYB', w: 100 }, { code: 'SD', w: 40 }, { code: 'BJL', w: 60 }, { code: 'BJSH', w: 60 }, { code: 'XGMZ', w: 80 }, { code: 'XGDK', w: 80 }, { code: 'JPTG', w: 80 }];
 
-        function factorial(n) { return n<=1?1:n*factorial(n-1); }
-        function comb(n, k) { return k<0||k>n?0:factorial(n)/(factorial(k)*factorial(n-k)); }
-        function binomial(n, k, p) { return comb(n,k)*Math.pow(p,k)*Math.pow(1-p,n-k); }
+        // ================= 原神 数据字典 =================
+        const GS_NAME_MAP = { "SM": "小生命", "GJ": "小攻击", "FY": "小防御", "SMB": "生命%", "GJB": "攻击%", "FYB": "防御%", "JTSX": "元素精通", "CNXL": "元素充能", "BJL": "暴击率", "BJSH": "暴击伤害", "ZLYZ": "治疗加成", "YSSH": "元素伤害" };
+        const GS_MAIN_PROBS = { "生之花": { "SM": 1 }, "死之羽": { "GJ": 1 }, "时之沙": { "SMB": 0.2668, "GJB": 0.2666, "FYB": 0.2666, "CNXL": 0.1, "JTSX": 0.1 }, "空之杯": { "SMB": 0.2125, "GJB": 0.2125, "FYB": 0.20, "YSSH": 0.05, "JTSX": 0.025 }, "理之冠": { "SMB": 0.22, "GJB": 0.22, "FYB": 0.22, "ZLYZ": 0.1, "JTSX": 0.04, "BJL": 0.1, "BJSH": 0.1 } };
+        const GS_WEIGHTS = [{ code: 'SM', w: 150 }, { code: 'GJ', w: 150 }, { code: 'FY', w: 150 }, { code: 'SMB', w: 100 }, { code: 'GJB', w: 100 }, { code: 'FYB', w: 100 }, { code: 'JTSX', w: 100 }, { code: 'CNXL', w: 100 }, { code: 'BJL', w: 75 }, { code: 'BJSH', w: 75 }];
+
+        function factorial(n) { return n <= 1 ? 1 : n * factorial(n - 1); }
+        function comb(n, k) { return k < 0 || k > n ? 0 : factorial(n) / (factorial(k) * factorial(n - k)); }
+        function binomial(n, k, p) { return comb(n, k) * Math.pow(p, k) * Math.pow(1 - p, n - k); }
 
         createApp({
             setup() {
-                const activeMenu = ref('hsr-single-max');
+                const activeMenu = ref('gs-single-max');
                 const loading = ref(false);
-                
-                // 初始化配置：默认选第一个，词条为空
-                const sCfg = reactive({ 
-                    part: '头部', 
-                    main: 'SM', 
-                    subs: [] 
-                });
 
-                const pCfg = reactive({ 
-                    target: 0.3, 
-                    mains: {"头部":"SM", "手部":"GJ", "躯干":"SMB", "脚部":"SMB", "位面球":"SMB", "连结绳":"SMB"}, 
-                    subs: [] 
-                });
-
-                // 监听部位变化，自动切换主属性为该部位的第一个选项
-                watch(() => sCfg.part, (newPart) => {
-                    sCfg.main = Object.keys(MAIN_PROBS[newPart])[0];
-                });
-
+                // --- 星铁 状态定义 ---
+                const sCfg = reactive({ part: '头部', main: 'SM', subs: [] });
+                const pCfg = reactive({ target: 0.3, mains: { "头部": "SM", "手部": "GJ", "躯干": "SMB", "脚部": "SMB", "位面球": "SMB", "连结绳": "SMB" }, subs: [] });
                 const sRes = ref(null);
                 const pRes = ref(null);
 
-                const calcDays = (prob) => {
-                    if (!prob || prob <= 0) return '∞';
-                    return Math.ceil(1 / (prob * 12));
-                };
+                watch(() => sCfg.part, (newPart) => { sCfg.main = Object.keys(MAIN_PROBS[newPart])[0]; });
 
+                // --- 原神 状态定义 ---
+                const gsCfg = reactive({ part: '生之花', main: 'SM', subs: [] });
+                const gpCfg = reactive({ target: 0.3, mains: { "生之花": "SM", "死之羽": "GJ", "时之沙": "SMB", "空之杯": "SMB", "理之冠": "SMB" }, subs: [] });
+                const gsRes = ref(null);
+                const gpRes = ref(null);
+
+                watch(() => gsCfg.part, (newPart) => { gsCfg.main = Object.keys(GS_MAIN_PROBS[newPart])[0]; });
+
+                // --- 工具函数 ---
+                const calcDays = (prob) => { return (!prob || prob <= 0) ? '∞' : Math.ceil(1 / (prob * 12)); };
+                const calcDaysGs = (prob) => { return (!prob || prob <= 0) ? '∞' : Math.ceil(1 / (prob * 9)); }; // 原神每天约刷9件特定副本金装
+
+                // --- 星铁 计算核心 ---
                 const simulate = (part, main, targets) => {
                     const factor = (part === '位面球' || part === '连结绳') ? 0.25 : 0.125;
                     const mRate = MAIN_PROBS[part][main] || 0;
@@ -182,71 +395,97 @@
                     let initCounts = new Array(5).fill(0);
                     const trials = 200000;
 
-                    for (let i=0; i<trials; i++) {
-                        let heap = samples.map(s => ({c:s.code, k:Math.pow(Math.random(), 1/s.w)})).sort((a,b)=>b.k-a.k).slice(0,4);
+                    for (let i = 0; i < trials; i++) {
+                        let heap = samples.map(s => ({ c: s.code, k: Math.pow(Math.random(), 1 / s.w) })).sort((a, b) => b.k - a.k).slice(0, 4);
                         let hits = heap.filter(x => targets.includes(x.c)).length;
                         initCounts[hits]++;
                     }
-                    
+
                     let finalDist = new Array(11).fill(0);
-                    for (let b=0; b<5; b++) {
-                        let p = initCounts[b]/trials;
-                        if(p===0)continue;
-                        for(let u=0; u<5; u++) finalDist[b+u] += 0.8 * p * binomial(4, u, b/4);
-                        for(let u=0; u<6; u++) finalDist[b+u] += 0.2 * p * binomial(5, u, b/4);
+                    for (let b = 0; b < 5; b++) {
+                        let p = initCounts[b] / trials;
+                        if (p === 0) continue;
+                        for (let u = 0; u < 5; u++) finalDist[b + u] += 0.8 * p * binomial(4, u, b / 4);
+                        for (let u = 0; u < 6; u++) finalDist[b + u] += 0.2 * p * binomial(5, u, b / 4);
                     }
-                    return { 
-                        initP: initCounts.map(c => (c/trials)*mRate*factor), 
-                        finalP: finalDist.map(p => p*mRate*factor) 
-                    };
+                    return { initP: initCounts.map(c => (c / trials) * mRate * factor), finalP: finalDist.map(p => p * mRate * factor) };
                 };
 
-                const runSingle = () => {
-                    loading.value = true;
-                    setTimeout(() => {
-                        const res = simulate(sCfg.part, sCfg.main, toRaw(sCfg.subs));
-                        sRes.value = res;
-                        loading.value = false;
-                    }, 100);
+                // --- 原神 计算核心 ---
+                const simulateGs = (part, main, targets) => {
+                    const factor = 0.1; // 原神秘境一套有5件，占副本掉落一半。特定部位概率为 0.5 * 0.2 = 0.1
+                    const mRate = GS_MAIN_PROBS[part][main] || 0;
+                    const samples = GS_WEIGHTS.filter(s => s.code !== main);
+                    let initCounts = new Array(5).fill(0);
+                    const trials = 200000;
+
+                    for (let i = 0; i < trials; i++) {
+                        let heap = samples.map(s => ({ c: s.code, k: Math.pow(Math.random(), 1 / s.w) })).sort((a, b) => b.k - a.k).slice(0, 4);
+                        let hits = heap.filter(x => targets.includes(x.c)).length;
+                        initCounts[hits]++;
+                    }
+
+                    let finalDist = new Array(11).fill(0);
+                    for (let b = 0; b < 5; b++) {
+                        let p = initCounts[b] / trials;
+                        if (p === 0) continue;
+                        // 原神词条强化规则和星铁一致（初始3/4词条，共强化5次：+4, +8, +12, +16, +20）
+                        for (let u = 0; u < 5; u++) finalDist[b + u] += 0.8 * p * binomial(4, u, b / 4);
+                        for (let u = 0; u < 6; u++) finalDist[b + u] += 0.2 * p * binomial(5, u, b / 4);
+                    }
+                    return { initP: initCounts.map(c => (c / trials) * mRate * factor), finalP: finalDist.map(p => p * mRate * factor) };
                 };
+
+                // --- 触发函数 ---
+                const runSingle = () => { loading.value = true; setTimeout(() => { sRes.value = simulate(sCfg.part, sCfg.main, toRaw(sCfg.subs)); loading.value = false; }, 100); };
+                const runGsSingle = () => { loading.value = true; setTimeout(() => { gsRes.value = simulateGs(gsCfg.part, gsCfg.main, toRaw(gsCfg.subs)); loading.value = false; }, 100); };
 
                 const runPlan = () => {
                     loading.value = true;
                     setTimeout(() => {
                         let table = [], total = 0;
                         const targetP = pCfg.target / 100;
-                        
-                        // --- 新增：在这里计算按下按钮时的期望天数 ---
                         const currentTargetDays = Math.ceil(100 / (pCfg.target * 12));
-                        
+
                         ["头部", "手部", "躯干", "脚部", "位面球", "连结绳"].forEach(p => {
                             const res = simulate(p, pCfg.mains[p], toRaw(pCfg.subs));
                             let cumP = 0, foundK = 0, finalP = 0;
-                            for (let k = 10; k >= 0; k--) {
-                                cumP += res.finalP[k];
-                                if (cumP >= targetP) { foundK = k; finalP = cumP; break; }
-                            }
+                            for (let k = 10; k >= 0; k--) { cumP += res.finalP[k]; if (cumP >= targetP) { foundK = k; finalP = cumP; break; } }
                             total += foundK;
-                            table.push({ 
-                                part: p, main: NAME_MAP[pCfg.mains[p]] || pCfg.mains[p], 
-                                k: foundK, pStr: (finalP * 100).toFixed(3) + "%", 
-                                days: calcDays(finalP) 
-                            });
+                            table.push({ part: p, main: NAME_MAP[pCfg.mains[p]] || pCfg.mains[p], k: foundK, pStr: (finalP * 100).toFixed(3) + "%", days: calcDays(finalP) });
                         });
-
-                        // 将结果存入 pRes，包括当时计算的天数
-                        pRes.value = { 
-                            table, 
-                            total, 
-                            targetDays: currentTargetDays // 存储快照
-                        };
+                        pRes.value = { table, total, targetDays: currentTargetDays };
                         loading.value = false;
                     }, 100);
                 };
 
-                return { activeMenu, loading, sCfg, pCfg, sRes, pRes, parts: Object.keys(MAIN_PROBS), partsOrder: [ "躯干", "脚部", "位面球", "连结绳"], weights: WEIGHTS, nameMap: NAME_MAP, mainProbs: MAIN_PROBS, runSingle, runPlan, calcDays };
+                const runGsPlan = () => {
+                    loading.value = true;
+                    setTimeout(() => {
+                        let table = [], total = 0;
+                        const targetP = gpCfg.target / 100;
+                        const currentTargetDays = Math.ceil(100 / (gpCfg.target * 9));
+
+                        ["生之花", "死之羽", "时之沙", "空之杯", "理之冠"].forEach(p => {
+                            const res = simulateGs(p, gpCfg.mains[p], toRaw(gpCfg.subs));
+                            let cumP = 0, foundK = 0, finalP = 0;
+                            for (let k = 10; k >= 0; k--) { cumP += res.finalP[k]; if (cumP >= targetP) { foundK = k; finalP = cumP; break; } }
+                            total += foundK;
+                            table.push({ part: p, main: GS_NAME_MAP[gpCfg.mains[p]] || gpCfg.mains[p], k: foundK, pStr: (finalP * 100).toFixed(3) + "%", days: calcDaysGs(finalP) });
+                        });
+                        gpRes.value = { table, total, targetDays: currentTargetDays };
+                        loading.value = false;
+                    }, 100);
+                };
+
+                return {
+                    activeMenu, loading,
+                    sCfg, pCfg, sRes, pRes, parts: Object.keys(MAIN_PROBS), partsOrder: ["躯干", "脚部", "位面球", "连结绳"], weights: WEIGHTS, nameMap: NAME_MAP, mainProbs: MAIN_PROBS, runSingle, runPlan, calcDays,
+                    gsCfg, gpCfg, gsRes, gpRes, gsParts: Object.keys(GS_MAIN_PROBS), gsPartsOrder: ["时之沙", "空之杯", "理之冠"], gsWeights: GS_WEIGHTS, gsNameMap: GS_NAME_MAP, gsMainProbs: GS_MAIN_PROBS, runGsSingle, runGsPlan, calcDaysGs
+                };
             }
-        }).component('Star', ElementPlusIconsVue.Star).use(ElementPlus).mount('#app');
+        }).component('Star', ElementPlusIconsVue.Star).component('Grid', ElementPlusIconsVue.Grid).use(ElementPlus).mount('#app');
     </script>
 </body>
+
 </html>
