@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>原神/星铁圣遗物概率计算</title>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/element-plus/dist/index.css" />
+    <script src="https://unpkg.com/element-plus"></script>
+    <script src="https://unpkg.com/@element-plus/icons-vue"></script>
+    <style>
+        body { margin: 0; font-family: 'Helvetica Neue', Helvetica, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', '微软雅黑', Arial, sans-serif; background-color: #f0f2f5; }
+        .el-header { background-color: #fff; border-bottom: 1px solid #dcdfe6; display: flex; align-items: center; font-size: 20px; font-weight: bold; color: #303133; }
+        .el-aside { background-color: #fff; height: calc(100vh - 60px); border-right: 1px solid #e6e6e6; }
+        .el-main { height: calc(100vh - 60px); overflow-y: auto; padding: 24px; }
+        .config-card { margin-bottom: 20px; border-radius: 8px; box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.05); }
+        .result-box { background: #fafafa; padding: 15px; border-radius: 4px; border: 1px solid #ebeef5; font-family: 'Consolas', monospace; }
+        .substat-checkbox-group .el-checkbox { margin-right: 20px; margin-bottom: 10px; }
+        .prob-high { color: #67c23a; font-weight: bold; }
+        .prob-mid { color: #e6a23c; font-weight: bold;}
+        .prob-low { color: #f56c6c; }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <el-container>
+            <el-header>
+                原神/星铁圣遗物概率计算
+            </el-header>
+
+            <el-container>
+                <el-aside width="250px">
+                    <el-menu :default-active="activeMenu" @select="handleMenuSelect" :default-openeds="['hsr']">
+                        <el-sub-menu index="genshin">
+                            <template #title>
+                                <el-icon><location /></el-icon>
+                                <span>原神</span>
+                            </template>
+                            <el-menu-item index="genshin-1">单件胚子概率</el-menu-item>
+                            <el-menu-item index="genshin-2">单件满级词条数概率</el-menu-item>
+                            <el-menu-item index="genshin-3">套装满级词条数概率</el-menu-item>
+                        </el-sub-menu>
+
+                        <el-sub-menu index="hsr">
+                            <template #title>
+                                <el-icon><star /></el-icon>
+                                <span>星铁</span>
+                            </template>
+                            <el-menu-item index="hsr-single-base">单件胚子概率</el-menu-item>
+                            <el-menu-item index="hsr-single-max">单件满级词条数概率</el-menu-item>
+                            <el-menu-item index="hsr-set-max">套装满级词条数概率</el-menu-item>
+                        </el-sub-menu>
+                    </el-menu>
+                </el-aside>
+
+                <el-main>
+                    <el-alert title="说明" type="info" :closable="false" style="margin-bottom: 20px;">
+                        <template #default>
+                            <div style="font-size: 13px; line-height: 1.6; color: #606266;">
+                                <li>本算法基于常数时间确定的随机模拟（50,000次迭代）。</li>
+                                <li>单件胚子计算仅考虑强化到+0时的有效词条掉落率。单件满级计算涵盖强化至+15的分布。</li>
+                                <li>有效词条需根据您的角色需求勾选。</li>
+                            </div>
+                        </template>
+                    </el-alert>
+
+                    <div v-show="activeMenu === 'hsr-single-base' || activeMenu === 'hsr-single-max'">
+                        <el-row :gutter="20">
+                            <el-col :span="12">
+                                <el-card class="config-card" header="单件配置参数">
+                                    <el-form label-width="100px" label-position="left">
+                                        <el-form-item label="遗器部位">
+                                            <el-select v-model="singleConfig.part" @change="updateMainStats" style="width: 100%;">
+                                                <el-option v-for="part in parts" :key="part" :label="part" :value="part"></el-option>
+                                            </el-select>
+                                        </el-form-item>
+                                        <el-form-item label="主属性要求">
+                                            <el-select v-model="singleConfig.mainStat" style="width: 100%;">
+                                                <el-option v-for="(val, key) in currentMainStats" :key="key" :label="nameMap[key] || key" :value="key"></el-option>
+                                            </el-select>
+                                        </el-form-item>
+                                        <el-form-item label="有效副词条">
+                                            <el-checkbox-group v-model="singleConfig.targetSubs" class="substat-checkbox-group">
+                                                <el-checkbox v-for="item in overallWeights" :key="item.code" :label="item.code">
+                                                    {{ nameMap[item.code] || item.code }}
+                                                </el-checkbox>
+                                            </el-checkbox-group>
+                                        </el-form-item>
+                                        <el-form-item>
+                                            <el-button type="primary" @click="runSingleSim" :loading="isCalculating" style="width: 100%;">
+                                                开始计算模拟
+                                            </el-button>
+                                        </el-form-item>
+                                    </el-form>
+                                </el-card>
+                            </el-col>
+
+                            <el-col :span="12">
+                                <el-card class="config-card" header="计算结果">
+                                    <div v-if="!singleResult" style="color: #909399; text-align: center; padding: 40px 0;">
+                                        请在左侧配置参数并点击计算
+                                    </div>
+                                    <div v-else class="result-box">
+                                        <h3 style="margin-top:0; color:#409EFF;">
+                                            {{ singleConfig.part }} - {{ nameMap[singleConfig.mainStat] }}
+                                        </h3>
+                                        <p style="font-size: 13px; color: #606266;">
+                                            有效词条：{{ singleConfig.targetSubs.map(t => nameMap[t] || t).join(', ') }}
+                                        </p>
+                                        <el-divider></el-divider>
+                                        
+                                        <div v-show="activeMenu === 'hsr-single-base'">
+                                            <div style="font-weight: bold; margin-bottom: 10px;">阶段一：初始 (+0) 掉落概率</div>
+                                            <table width="100%" style="line-height: 2;">
+                                                <tr v-for="(p, k) in singleResult.initP" :key="'init'+k">
+                                                    <td>初始命中 <b>{{ k }}</b> 词条</td>
+                                                    <td align="right" :class="getProbColorClass(p)">{{ (p * 100).toFixed(4) }}%</td>
+                                                </tr>
+                                            </table>
+                                        </div>
+
+                                        <div v-show="activeMenu === 'hsr-single-max'">
+                                            <div style="font-weight: bold; margin-bottom: 10px;">阶段二：满级 (+15) 最终概率分布</div>
+                                            <table width="100%" style="line-height: 2;">
+                                                <tr v-for="(p, k) in singleResult.finalP" :key="'final'+k" v-show="p > 0">
+                                                    <td>最终合计 <b>{{ k }}</b> 词条</td>
+                                                    <td align="right" :class="getProbColorClass(p)">{{ (p * 100).toFixed(4) }}%</td>
+                                                </tr>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </el-card>
+                            </el-col>
+                        </el-row>
+                    </div>
+
+                    <div v-show="activeMenu === 'hsr-set-max'">
+                         <el-row :gutter="20">
+                            <el-col :span="12">
+                                <el-card class="config-card" header="全套规划配置">
+                                    <el-form label-width="120px" label-position="left">
+                                        <el-form-item label="期望单件出货率">
+                                            <el-input-number v-model="planConfig.targetProb" :precision="2" :step="0.1" :min="0.01" :max="100"></el-input-number> %
+                                        </el-form-item>
+                                        
+                                        <el-divider>各部位主属性要求</el-divider>
+                                        <el-form-item v-for="part in partsOrder" :key="'plan'+part" :label="part">
+                                            <el-select v-model="planConfig.mainStats[part]" style="width: 100%;">
+                                                <el-option v-for="(val, key) in relicMainStatsProbs[part]" :key="key" :label="nameMap[key] || key" :value="key"></el-option>
+                                            </el-select>
+                                        </el-form-item>
+
+                                        <el-divider>统一有效副词条</el-divider>
+                                        <el-form-item>
+                                            <el-checkbox-group v-model="planConfig.targetSubs" class="substat-checkbox-group">
+                                                <el-checkbox v-for="item in overallWeights" :key="'plan_sub_'+item.code" :label="item.code">
+                                                    {{ nameMap[item.code] || item.code }}
+                                                </el-checkbox>
+                                            </el-checkbox-group>
+                                        </el-form-item>
+
+                                        <el-form-item>
+                                            <el-button type="success" @click="runPlanSim" :loading="isCalculating" style="width: 100%;">
+                                                分析毕业词条数
+                                            </el-button>
+                                        </el-form-item>
+                                    </el-form>
+                                </el-card>
+                            </el-col>
+
+                            <el-col :span="12">
+                                <el-card class="config-card" header="毕业规划报告">
+                                    <div v-if="!planResult" style="color: #909399; text-align: center; padding: 40px 0;">
+                                        请在左侧配置参数并点击计算
+                                    </div>
+                                    <div v-else class="result-box">
+                                        <div style="font-weight: bold; margin-bottom: 15px;">目标单件出货概率: <span style="color: #E6A23C;">{{ planConfig.targetProb }}%</span></div>
+                                        <el-table :data="planResult.tableData" border size="small" style="width: 100%; margin-bottom: 20px;">
+                                            <el-table-column prop="part" label="部位" width="80"></el-table-column>
+                                            <el-table-column prop="main" label="主属性"></el-table-column>
+                                            <el-table-column prop="kStr" label="推荐词条数" align="center">
+                                                <template #default="scope">
+                                                    <span v-if="scope.row.k > 0"><b>{{ scope.row.k }}</b></span>
+                                                    <span v-else style="color: #F56C6C;">无法达成</span>
+                                                </template>
+                                            </el-table-column>
+                                            <el-table-column prop="pStr" label="累积概率" align="right"></el-table-column>
+                                        </el-table>
+
+                                        <div style="background-color: #fdfdfd; padding: 15px; border: 1px solid #ebeef5; border-radius: 4px;">
+                                            <div style="margin-bottom: 8px;"><b>全套总推荐有效词条数：</b> <span style="color: #409EFF; font-size: 16px; font-weight: bold;">{{ planResult.totalStats }}</span> 词条</div>
+                                            <div style="margin-bottom: 8px;"><b>内圈总推荐有效词条数：</b> <span style="color: #67C23A; font-weight: bold;">{{ planResult.innerStats }}</span> 词条</div>
+                                            <div><b>外圈总推荐有效词条数：</b> <span style="color: #67C23A; font-weight: bold;">{{ planResult.outerStats }}</span> 词条</div>
+                                        </div>
+                                    </div>
+                                </el-card>
+                            </el-col>
+                        </el-row>
+                    </div>
+
+                </el-main>
+            </el-container>
+        </el-container>
+    </div>
+
+    <script>
+        const { createApp, ref, reactive, computed } = Vue;
+        for (const [key, component] of Object.entries(ElementPlusIconsVue)) {
+            // 稍后在app挂载前注册图标
+        }
+
+        // --- 静态数据移植自 Python ---
+        const RELIC_MAIN_STATS_PROBS = {
+            "头部": {"SM": 1}, "手部": {"GJ": 1},
+            "躯干": {"SMB": 0.20, "GJB": 0.20, "FYB": 0.20, "BJL": 0.10, "BJSH": 0.10, "ZLYZ": 0.10, "XGMZ": 0.10},
+            "脚部": {"SMB": 0.2917, "GJB": 0.2917, "FYB": 0.2917, "SD": 0.125},
+            "连结绳": {"SMB": 0.2633, "GJB": 0.2633, "FYB": 0.2633, "JPTG": 0.15, "CN": 0.06},
+            "位面球": {"SMB": 0.1233, "GJB": 0.1233, "FYB": 0.1233, "属性伤害": 0.09}
+        };
+
+        const OVERALL_WEIGHTS = [
+            {code: 'SM', weight: 100}, {code: 'GJ', weight: 100}, {code: 'FY', weight: 100}, 
+            {code: 'SMB', weight: 100}, {code: 'GJB', weight: 100}, {code: 'FYB', weight: 100}, 
+            {code: 'SD', weight: 40}, {code: 'BJL', weight: 60}, {code: 'BJSH', weight: 60}, 
+            {code: 'XGMZ', weight: 80}, {code: 'XGDK', weight: 80}, {code: 'JPTG', weight: 80}
+        ];
+
+        const NAME_MAP = {
+            "SM": "生命", "GJ": "攻击", "FY": "防御", "SMB": "生命%", "GJB": "攻击%", 
+            "FYB": "防御%", "SD": "速度", "BJL": "暴击率", "BJSH": "暴击伤害", 
+            "XGMZ": "效果命中", "XGDK": "效果抵抗", "JPTG": "击破特攻", "CN": "能量填充", "ZLYZ": "治疗量", "属性伤害": "属性增伤"
+        };
+
+        // --- 核心数学与模拟算法 ---
+        // 阶乘运算 (用于组合数)
+        function factorial(n) {
+            if (n === 0 || n === 1) return 1;
+            let result = 1;
+            for (let i = 2; i <= n; i++) result *= i;
+            return result;
+        }
+        
+        // 组合数 C(n, k)
+        function comb(n, k) {
+            if (k < 0 || k > n) return 0;
+            return factorial(n) / (factorial(k) * factorial(n - k));
+        }
+
+        // 二项分布算法
+        function binomial_prob(n, k, p) {
+            return comb(n, k) * Math.pow(p, k) * Math.pow(1 - p, n - k);
+        }
+
+        // 加权随机采样算法 (A-Res)
+        function a_expj(samples, m) {
+            let heap = [];
+            for (let i = 0; i < samples.length; i++) {
+                let wi = samples[i].weight;
+                let ki = Math.pow(Math.random(), 1 / wi);
+                heap.push({ki: ki, code: samples[i].code});
+            }
+            // 降序排序取前 m 个
+            heap.sort((a, b) => b.ki - a.ki);
+            return heap.slice(0, m).map(item => item.code);
+        }
+
+        // 获取完整结果的核心逻辑
+        function get_full_results(part, main_stat, target_subs, trials = 50000) {
+            const p_factor = (part === "位面球" || part === "连结绳") ? 0.25 : 0.125;
+            const main_rate = RELIC_MAIN_STATS_PROBS[part][main_stat] || 0;
+            
+            // 过滤掉包含主属性的副词条
+            const samples = OVERALL_WEIGHTS.filter(s => s.code !== main_stat);
+            
+            let init_counts = new Array(5).fill(0);
+            
+            // 模拟抽取
+            for (let i = 0; i < trials; i++) {
+                let sampled = a_expj(samples, 4);
+                let hits = 0;
+                for (let j = 0; j < sampled.length; j++) {
+                    if (target_subs.includes(sampled[j])) hits++;
+                }
+                init_counts[hits]++;
+            }
+
+            let init_probs = init_counts.map(c => (c / trials) * main_rate * p_factor);
+            let final_dist = new Array(10).fill(0);
+
+            for (let b_hits = 0; b_hits < init_counts.length; b_hits++) {
+                let prob = init_counts[b_hits] / trials;
+                if (prob === 0) continue;
+                let p_up = b_hits / 4.0;
+                
+                // 80% 初始3词条 (强化5次)
+                for (let u = 0; u < 5; u++) {
+                    final_dist[b_hits + u] += 0.8 * prob * binomial_prob(4, u, p_up);
+                }
+                // 20% 初始4词条 (强化6次)
+                for (let u = 0; u < 6; u++) {
+                    final_dist[b_hits + u] += 0.2 * prob * binomial_prob(5, u, p_up);
+                }
+            }
+
+            let final_probs = final_dist.map(p => p * main_rate * p_factor);
+            return { init_probs, final_probs };
+        }
+
+        // --- Vue 应用初始化 ---
+        const app = createApp({
+            setup() {
+                const activeMenu = ref('hsr-single-max');
+                const isCalculating = ref(false);
+
+                // 常量数据
+                const parts = Object.keys(RELIC_MAIN_STATS_PROBS);
+                const partsOrder = ["头部", "手部", "躯干", "脚部", "位面球", "连结绳"];
+                const overallWeights = OVERALL_WEIGHTS;
+                const nameMap = NAME_MAP;
+                const relicMainStatsProbs = RELIC_MAIN_STATS_PROBS;
+
+                // --- 单件配置与状态 ---
+                const singleConfig = reactive({
+                    part: '头部',
+                    mainStat: 'SM',
+                    targetSubs: []
+                });
+                const singleResult = ref(null);
+
+                // --- 套装配置与状态 ---
+                const planConfig = reactive({
+                    targetProb: 0.30,
+                    mainStats: {
+                        "头部": "SM", "手部": "GJ", "躯干": "BJL", 
+                        "脚部": "SD", "位面球": "属性伤害", "连结绳": "CN"
+                    },
+                    targetSubs: []
+                });
+                const planResult = ref(null);
+
+                // 计算当前部位可选的主属性
+                const currentMainStats = computed(() => {
+                    return RELIC_MAIN_STATS_PROBS[singleConfig.part] || {};
+                });
+
+                // 切换菜单
+                const handleMenuSelect = (index) => {
+                    activeMenu.value = index;
+                };
+
+                // 部位切换时重置主属性为第一个
+                const updateMainStats = () => {
+                    const stats = Object.keys(RELIC_MAIN_STATS_PROBS[singleConfig.part]);
+                    if (stats.length > 0) {
+                        singleConfig.mainStat = stats[0];
+                    }
+                };
+
+                // 概率颜色工具
+                const getProbColorClass = (prob) => {
+                    let p = prob * 100;
+                    if (p > 5) return 'prob-high';
+                    if (p > 1) return 'prob-mid';
+                    return 'prob-low';
+                };
+
+                // 执行单件计算
+                const runSingleSim = () => {
+                    if (singleConfig.targetSubs.length === 0) {
+                        ElementPlus.ElMessage.warning('请至少勾选一个有效副词条！');
+                        return;
+                    }
+                    isCalculating.value = true;
+                    // 使用 setTimeout 让 UI 有机会渲染 Loading 状态
+                    setTimeout(() => {
+                        const res = get_full_results(singleConfig.part, singleConfig.mainStat, Vue.toRaw(singleConfig.targetSubs));
+                        singleResult.value = {
+                            initP: res.init_probs,
+                            finalP: res.final_probs
+                        };
+                        isCalculating.value = false;
+                        ElementPlus.ElMessage.success('计算完成');
+                    }, 50);
+                };
+
+                // 执行套装规划计算
+                const runPlanSim = () => {
+                    if (planConfig.targetSubs.length === 0) {
+                        ElementPlus.ElMessage.warning('请至少勾选一个统一有效副词条！');
+                        return;
+                    }
+                    isCalculating.value = true;
+                    const target_p = planConfig.targetProb / 100.0;
+                    
+                    setTimeout(() => {
+                        let totalStats = 0, innerStats = 0, outerStats = 0;
+                        let tableData = [];
+
+                        for (let part of partsOrder) {
+                            let main = planConfig.mainStats[part];
+                            const res = get_full_results(part, main, Vue.toRaw(planConfig.targetSubs));
+                            let dist = res.final_probs;
+
+                            let found_k = 0, found_p = 0, cumulative_p = 0;
+                            // 倒序寻找累积概率满足目标的值
+                            for (let k = 9; k >= 0; k--) {
+                                cumulative_p += dist[k];
+                                if (cumulative_p >= target_p) {
+                                    found_k = k;
+                                    found_p = cumulative_p;
+                                    break;
+                                }
+                            }
+
+                            totalStats += found_k;
+                            if (part === "位面球" || part === "连结绳") {
+                                innerStats += found_k;
+                            } else {
+                                outerStats += found_k;
+                            }
+
+                            let p_display = (found_k > 0 || cumulative_p >= target_p) ? found_p : cumulative_p;
+                            
+                            tableData.push({
+                                part: part,
+                                main: NAME_MAP[main] || main,
+                                k: found_k,
+                                pStr: (p_display * 100).toFixed(3) + "%"
+                            });
+                        }
+
+                        planResult.value = {
+                            tableData,
+                            totalStats,
+                            innerStats,
+                            outerStats
+                        };
+                        isCalculating.value = false;
+                        ElementPlus.ElMessage.success('全套分析完成');
+                    }, 50);
+                };
+
+                return {
+                    activeMenu, isCalculating, handleMenuSelect,
+                    parts, partsOrder, overallWeights, nameMap, relicMainStatsProbs,
+                    singleConfig, singleResult, currentMainStats, updateMainStats, runSingleSim, getProbColorClass,
+                    planConfig, planResult, runPlanSim
+                };
+            }
+        });
+
+        // 注册图标
+        for (const [key, component] of Object.entries(ElementPlusIconsVue)) {
+            app.component(key, component);
+        }
+        
+        app.use(ElementPlus);
+        app.mount('#app');
+    </script>
+</body>
+</html>
