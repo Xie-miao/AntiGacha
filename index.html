@@ -25,15 +25,15 @@
 <body>
     <div id="app">
         <el-container>
-            <el-header>原神/星铁圣遗物概率计算</el-header>
+            <el-header>原神/星铁圣遗物掉落概率计算</el-header>
             <el-container>
                 <el-aside width="240px">
                     <el-menu :default-active="activeMenu" @select="i => activeMenu = i" :default-openeds="['hsr']">
                         <el-sub-menu index="hsr">
                             <template #title><el-icon><star /></el-icon><span>星穹铁道</span></template>
-                            <el-menu-item index="hsr-single-base">单件胚子出货概率</el-menu-item>
-                            <el-menu-item index="hsr-single-max">单件满级词条分布概率</el-menu-item>
-                            <el-menu-item index="hsr-set-max">套装满级词条分布概率</el-menu-item>
+                            <el-menu-item index="hsr-single-base">单件胚子概率</el-menu-item>
+                            <el-menu-item index="hsr-single-max">单件满级词条概率</el-menu-item>
+                            <el-menu-item index="hsr-set-max">套装毕业规划</el-menu-item>
                         </el-sub-menu>
                     </el-menu>
                 </el-aside>
@@ -51,7 +51,7 @@
                                                 <el-checkbox v-for="i in weights" :label="i.code">{{ nameMap[i.code] }}</el-checkbox>
                                             </el-checkbox-group>
                                         </el-form-item>
-                                        <el-button type="primary" @click="runSingle" :loading="loading" style="width:100%">计算</el-button>
+                                        <el-button type="primary" @click="runSingle" :loading="loading" style="width:100%">开始精算</el-button>
                                     </el-form>
                                 </el-card>
                             </el-col>
@@ -92,7 +92,7 @@
                                                     <el-checkbox v-for="i in weights" :label="i.code">{{ nameMap[i.code] }}</el-checkbox>
                                                 </el-checkbox-group>
                                             </el-form-item>
-                                            <el-button type="success" @click="runPlan" :loading="loading" style="width:100%">计算</el-button>
+                                            <el-button type="success" @click="runPlan" :loading="loading" style="width:100%">分析全套毕业时间</el-button>
                                         </el-form>
                                     </el-card>
                                 </el-col>
@@ -104,7 +104,8 @@
                                                 <el-table-column prop="part" label="部位" width="80"></el-table-column>
                                                 <el-table-column prop="main" label="主属性"></el-table-column>
                                                 <el-table-column label="推荐词条" align="center">
-                                                    <template #default="s">{{ s.row.pStr }}</template>
+                                                    <template #default="s"><el-badge :value="s.row.k" type="primary" :hidden="s.row.k<=0"></el-badge></template>
+                                                </el-table-column>
                                                 <el-table-column label="累积概率" align="right" width="120">
                                                     <template #default="s">{{ s.row.pStr }}</template>
                                                 </el-table-column>
@@ -115,8 +116,8 @@
                                                 </el-table-column>
                                             </el-table>
                                             <div style="margin-top:20px; padding:15px; background:#f0f9eb; border-radius:8px; color:#67c23a; border:1px solid #e1f3d8">
-                                                <b>全身建议总词条数 <el-tag type="success" effect="dark">{{ pRes.total }}</el-tag> 
-                                                <span style="margin-left:15px">预计平均需要刷取约 <b style="font-size:18px">{{ Math.ceil(100/(pCfg.target*12)) }}</b> 天。</span>
+                                                <b>📊 汇总总结：</b> 全身建议总词条数 <el-tag type="success" effect="dark">{{ pRes.total }}</el-tag> 
+                                                <span style="margin-left:15px">预计单件毕业平均需要刷取约 <b style="font-size:18px">{{ Math.ceil(100/(pCfg.target*12)) }}</b> 天。</span>
                                             </div>
                                         </div>
                                     </el-card>
