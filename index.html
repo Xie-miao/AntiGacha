@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 
-<head>
+<head> 
     <meta charset="UTF-8">
     <title>星铁/原神圣遗物概率模拟计算</title>
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
@@ -9,7 +9,6 @@
     <script src="https://unpkg.com/element-plus"></script>
     <script src="https://unpkg.com/@element-plus/icons-vue"></script>
     <style>
-        /* ... 此处保留原样式不变 ... */
         body {
             margin: 0;
             font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
@@ -87,11 +86,11 @@
             font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
         }
 
-        /* 新增说明页样式 */
         .readme-container {
-            max-width: 800px;
             line-height: 1.6;
             color: #303133;
+            width: 95%;
+            margin: 0 auto;
         }
 
         .readme-container h3 {
@@ -155,15 +154,15 @@
                             <ul>
                                 <li>
                                     <b>单件胚子掉落概率：</b>
-                                    指在获得单件五星圣遗物（遗器）的条件下，该产出同时满足特定套装、特定部位、特定主属性以及初始副词条包含目标词条的联合概率。
+                                    指在<b>副本中</b>获得单件五星圣遗物（遗器）的条件下，该产出同时满足特定套装、特定部位、特定主属性以及初始副词条包含目标词条的联合概率。
                                 </li>
                                 <li>
                                     <b>单件满级词条分布概率：</b>
-                                    指在获得特定套装、部位及主属性的前提下，经强化至满级后，该件圣遗物所含有效副词条总数（初始词条数 + 强化提升次数）的离散概率分布。
+                                    指在<b>副本中</b>获得单件五星圣遗物（遗器）并强化至满级后，在所含有效副词条总数（初始词条数 + 强化提升次数）不同的情况下，该产出同时满足特定套装、特定部位、特定主属性的联合概率。
                                 </li>
                                 <li>
                                     <b>套装满级词条分布概率：</b>
-                                    指全身多个部位（通常为 4 件套或 5 件套）有效词条数之和的综合分布概率。它通过对各部位单件概率分布进行卷积计算得出，用于评估达成套装总目标的难易程度。
+                                    指全身多个部位有效词条数之和的综合分布概率。它通过对各部位单件概率分布进行卷积计算得出，用于评估达成套装总目标的难易程度。
                                 </li>
                                 <li>
                                     <b>期望天数：</b>
@@ -421,7 +420,6 @@
 
     <script>
         const { createApp, ref, reactive, toRaw, watch } = Vue;
-        // ... 此处保留原数据字典 (NAME_MAP, MAIN_PROBS, GS_WEIGHTS 等) ...
         const NAME_MAP = { "SM": "小生命", "GJ": "小攻击", "FY": "小防御", "SMB": "生命%", "GJB": "攻击%", "FYB": "防御%", "SD": "速度", "BJL": "暴击率", "BJSH": "暴击伤害", "XGMZ": "效果命中", "XGDK": "效果抵抗", "JPTG": "击破特攻", "CN": "能量填充", "ZLYZ": "治疗量", "属性伤害": "属性增伤" };
         const MAIN_PROBS = { "头部": { "SM": 1 }, "手部": { "GJ": 1 }, "躯干": { "SMB": 0.2, "GJB": 0.2, "FYB": 0.2, "BJL": 0.1, "BJSH": 0.1, "ZLYZ": 0.1, "XGMZ": 0.1 }, "脚部": { "SMB": 0.2917, "GJB": 0.2917, "FYB": 0.2917, "SD": 0.125 }, "连结绳": { "SMB": 0.2633, "GJB": 0.2633, "FYB": 0.2633, "JPTG": 0.15, "CN": 0.06 }, "位面球": { "SMB": 0.1233, "GJB": 0.1233, "FYB": 0.1233, "属性伤害": 0.09 } };
         const WEIGHTS = [{ code: 'SM', w: 100 }, { code: 'GJ', w: 100 }, { code: 'FY', w: 100 }, { code: 'SMB', w: 100 }, { code: 'GJB', w: 100 }, { code: 'FYB', w: 100 }, { code: 'SD', w: 40 }, { code: 'BJL', w: 60 }, { code: 'BJSH', w: 60 }, { code: 'XGMZ', w: 80 }, { code: 'XGDK', w: 80 }, { code: 'JPTG', w: 80 }];
@@ -436,11 +434,9 @@
 
         createApp({
             setup() {
-                // 修改此处：默认激活 readme
                 const activeMenu = ref('readme');
                 const loading = ref(false);
 
-                // ... 以下逻辑完全保留，不作更改 ...
                 const sCfg = reactive({ part: '头部', main: 'SM', subs: [] });
                 const pCfg = reactive({ target: 0.3, mains: { "头部": "SM", "手部": "GJ", "躯干": "SMB", "脚部": "SMB", "位面球": "SMB", "连结绳": "SMB" }, subs: [] });
                 const sRes = ref(null);
@@ -451,6 +447,7 @@
                 const gsRes = ref(null);
                 const gpRes = ref(null);
                 watch(() => gsCfg.part, (newPart) => { gsCfg.main = Object.keys(GS_MAIN_PROBS[newPart])[0]; });
+
                 const calcDays = (prob) => { return (!prob || prob <= 0) ? '∞' : Math.ceil(1 / (prob * 12)); };
                 const calcDaysGs = (prob) => { return (!prob || prob <= 0) ? '∞' : Math.ceil(1 / (prob * 9)); };
                 const simulate = (part, main, targets) => {
