@@ -200,7 +200,8 @@
                                                 style="width:100%"><el-option v-for="p in parts"
                                                     :value="p"></el-option></el-select></el-form-item>
                                         <el-form-item label="主属性"><el-select v-model="sCfg.main"
-                                                style="width:100%"><el-option v-for="(v,k) in mainProbs[sCfg.part]"
+                                                style="width:100%"><el-option label="任意"
+                                                    :value="ANY_MAIN"></el-option><el-option v-for="(v,k) in mainProbs[sCfg.part]"
                                                     :label="nameMap[k]"
                                                     :value="k"></el-option></el-select></el-form-item>
                                         <el-form-item label="有效词条">
@@ -254,7 +255,8 @@
                                                 style="width:100%"></el-input-number>
                                         </el-form-item>
                                         <el-form-item v-for="p in partsOrder" :label="p">
-                                            <el-select v-model="pCfg.mains[p]" style="width:100%"><el-option
+                                            <el-select v-model="pCfg.mains[p]" style="width:100%"><el-option label="任意"
+                                                    :value="ANY_MAIN"></el-option><el-option
                                                     v-for="(v,k) in mainProbs[p]" :label="nameMap[k]"
                                                     :value="k"></el-option></el-select>
                                         </el-form-item>
@@ -312,7 +314,8 @@
                                                 style="width:100%"><el-option v-for="p in gsParts"
                                                     :value="p"></el-option></el-select></el-form-item>
                                         <el-form-item label="主属性"><el-select v-model="gsCfg.main"
-                                                style="width:100%"><el-option v-for="(v,k) in gsMainProbs[gsCfg.part]"
+                                                style="width:100%"><el-option label="任意"
+                                                    :value="ANY_MAIN"></el-option><el-option v-for="(v,k) in gsMainProbs[gsCfg.part]"
                                                     :label="gsNameMap[k]"
                                                     :value="k"></el-option></el-select></el-form-item>
                                         <el-form-item label="有效词条">
@@ -367,7 +370,8 @@
                                                 style="width:100%"></el-input-number>
                                         </el-form-item>
                                         <el-form-item v-for="p in gsPartsOrder" :label="p">
-                                            <el-select v-model="gpCfg.mains[p]" style="width:100%"><el-option
+                                            <el-select v-model="gpCfg.mains[p]" style="width:100%"><el-option label="任意"
+                                                    :value="ANY_MAIN"></el-option><el-option
                                                     v-for="(v,k) in gsMainProbs[p]" :label="gsNameMap[k]"
                                                     :value="k"></el-option></el-select>
                                         </el-form-item>
@@ -428,107 +432,141 @@
         const GS_MAIN_PROBS = { "生之花": { "SM": 1 }, "死之羽": { "GJ": 1 }, "时之沙": { "SMB": 0.2668, "GJB": 0.2666, "FYB": 0.2666, "CNXL": 0.1, "JTSX": 0.1 }, "空之杯": { "SMB": 0.2125, "GJB": 0.2125, "FYB": 0.20, "YSSH": 0.05, "JTSX": 0.025 }, "理之冠": { "SMB": 0.22, "GJB": 0.22, "FYB": 0.22, "ZLYZ": 0.1, "JTSX": 0.04, "BJL": 0.1, "BJSH": 0.1 } };
         const GS_WEIGHTS = [{ code: 'SM', w: 150 }, { code: 'GJ', w: 150 }, { code: 'FY', w: 150 }, { code: 'SMB', w: 100 }, { code: 'GJB', w: 100 }, { code: 'FYB', w: 100 }, { code: 'JTSX', w: 100 }, { code: 'CNXL', w: 100 }, { code: 'BJL', w: 75 }, { code: 'BJSH', w: 75 }];
 
+        const ANY_MAIN = "\u4efb\u610f";
+
         function factorial(n) { return n <= 1 ? 1 : n * factorial(n - 1); }
         function comb(n, k) { return k < 0 || k > n ? 0 : factorial(n) / (factorial(k) * factorial(n - k)); }
         function binomial(n, k, p) { return comb(n, k) * Math.pow(p, k) * Math.pow(1 - p, n - k); }
+
+        function simulateSubstats(weights, excludeMain, targets, trials) {
+            if (trials === undefined) trials = 200000;
+            const samples = weights.filter(s => s.code !== excludeMain);
+            let counts = new Array(5).fill(0);
+            for (let i = 0; i < trials; i++) {
+                let heap = samples.map(s => ({ c: s.code, k: Math.pow(Math.random(), 1 / s.w) })).sort((a, b) => b.k - a.k).slice(0, 4);
+                let hits = heap.filter(x => targets.includes(x.c)).length;
+                counts[hits]++;
+            }
+            return counts.map(c => c / trials);
+        }
+
+        function upgradeDist(subDist) {
+            let finalP = new Array(11).fill(0);
+            for (let b = 0; b < 5; b++) {
+                let p = subDist[b];
+                if (p === 0) continue;
+                for (let u = 0; u < 5; u++) finalP[b + u] += 0.8 * p * binomial(4, u, b / 4);
+                for (let u = 0; u < 6; u++) finalP[b + u] += 0.2 * p * binomial(5, u, b / 4);
+            }
+            return finalP;
+        }
 
         createApp({
             setup() {
                 const activeMenu = ref('readme');
                 const loading = ref(false);
 
-                const sCfg = reactive({ part: '头部', main: 'SM', subs: [] });
-                const pCfg = reactive({ target: 0.3, mains: { "头部": "SM", "手部": "GJ", "躯干": "SMB", "脚部": "SMB", "位面球": "SMB", "连结绳": "SMB" }, subs: [] });
+                const sCfg = reactive({ part: '\u5934\u90e8', main: 'SM', subs: [] });
+                const pCfg = reactive({ target: 0.3, mains: { "\u5934\u90e8": "SM", "\u624b\u90e8": "GJ", "\u8eaf\u5e72": "SMB", "\u811a\u90e8": "SMB", "\u4f4d\u9762\u7403": "SMB", "\u8fde\u7ed3\u7ef3": "SMB" }, subs: [] });
                 const sRes = ref(null);
                 const pRes = ref(null);
                 watch(() => sCfg.part, (newPart) => { sCfg.main = Object.keys(MAIN_PROBS[newPart])[0]; });
-                const gsCfg = reactive({ part: '生之花', main: 'SM', subs: [] });
-                const gpCfg = reactive({ target: 0.3, mains: { "生之花": "SM", "死之羽": "GJ", "时之沙": "SMB", "空之杯": "SMB", "理之冠": "SMB" }, subs: [] });
+                const gsCfg = reactive({ part: '\u751f\u4e4b\u82b1', main: 'SM', subs: [] });
+                const gpCfg = reactive({ target: 0.3, mains: { "\u751f\u4e4b\u82b1": "SM", "\u6b7b\u4e4b\u7fbd": "GJ", "\u65f6\u4e4b\u6c99": "SMB", "\u7a7a\u4e4b\u676f": "SMB", "\u7406\u4e4b\u51a0": "SMB" }, subs: [] });
                 const gsRes = ref(null);
                 const gpRes = ref(null);
                 watch(() => gsCfg.part, (newPart) => { gsCfg.main = Object.keys(GS_MAIN_PROBS[newPart])[0]; });
 
-                const calcDays = (prob) => { return (!prob || prob <= 0) ? '∞' : Math.ceil(1 / (prob * 12)); };
-                const calcDaysGs = (prob) => { return (!prob || prob <= 0) ? '∞' : Math.ceil(1 / (prob * 9)); };
-                const simulate = (part, main, targets) => {
-                    const factor = (part === '位面球' || part === '连结绳') ? 0.25 : 0.125;
-                    const mRate = MAIN_PROBS[part][main] || 0;
-                    const samples = WEIGHTS.filter(s => s.code !== main);
-                    let initCounts = new Array(5).fill(0);
-                    const trials = 200000;
-                    for (let i = 0; i < trials; i++) {
-                        let heap = samples.map(s => ({ c: s.code, k: Math.pow(Math.random(), 1 / s.w) })).sort((a, b) => b.k - a.k).slice(0, 4);
-                        let hits = heap.filter(x => targets.includes(x.c)).length;
-                        initCounts[hits]++;
+                const calcDays = (prob) => { return (!prob || prob <= 0) ? '\u221e' : Math.ceil(1 / (prob * 12)); };
+                const calcDaysGs = (prob) => { return (!prob || prob <= 0) ? '\u221e' : Math.ceil(1 / (prob * 9)); };
+
+                function simulate(part, main, targets) {
+                    var factor = (part === '\u4f4d\u9762\u7403' || part === '\u8fde\u7ed3\u7ef3') ? 0.25 : 0.125;
+                    if (main === ANY_MAIN) {
+                        var initAgg = new Array(5).fill(0);
+                        var finalAgg = new Array(11).fill(0);
+                        var mains = Object.keys(MAIN_PROBS[part]);
+                        for (var mi = 0; mi < mains.length; mi++) {
+                            var m = mains[mi];
+                            var mRate = MAIN_PROBS[part][m];
+                            var subDist = simulateSubstats(WEIGHTS, m, targets);
+                            var finalDist = upgradeDist(subDist);
+                            for (var i = 0; i < 5; i++) initAgg[i] += subDist[i] * mRate * factor;
+                            for (var i = 0; i < 11; i++) finalAgg[i] += finalDist[i] * mRate * factor;
+                        }
+                        return { initP: initAgg, finalP: finalAgg };
                     }
-                    let finalDist = new Array(11).fill(0);
-                    for (let b = 0; b < 5; b++) {
-                        let p = initCounts[b] / trials;
-                        if (p === 0) continue;
-                        for (let u = 0; u < 5; u++) finalDist[b + u] += 0.8 * p * binomial(4, u, b / 4);
-                        for (let u = 0; u < 6; u++) finalDist[b + u] += 0.2 * p * binomial(5, u, b / 4);
+                    var mRate = MAIN_PROBS[part][main] || 0;
+                    var subDist = simulateSubstats(WEIGHTS, main, targets);
+                    var finalDist = upgradeDist(subDist);
+                    return { initP: subDist.map(function(p) { return p * mRate * factor; }), finalP: finalDist.map(function(p) { return p * mRate * factor; }) };
+                }
+
+                function simulateGs(part, main, targets) {
+                    var factor = 0.1;
+                    if (main === ANY_MAIN) {
+                        var initAgg = new Array(5).fill(0);
+                        var finalAgg = new Array(11).fill(0);
+                        var mains = Object.keys(GS_MAIN_PROBS[part]);
+                        for (var mi = 0; mi < mains.length; mi++) {
+                            var m = mains[mi];
+                            var mRate = GS_MAIN_PROBS[part][m];
+                            var subDist = simulateSubstats(GS_WEIGHTS, m, targets);
+                            var finalDist = upgradeDist(subDist);
+                            for (var i = 0; i < 5; i++) initAgg[i] += subDist[i] * mRate * factor;
+                            for (var i = 0; i < 11; i++) finalAgg[i] += finalDist[i] * mRate * factor;
+                        }
+                        return { initP: initAgg, finalP: finalAgg };
                     }
-                    return { initP: initCounts.map(c => (c / trials) * mRate * factor), finalP: finalDist.map(p => p * mRate * factor) };
-                };
-                const simulateGs = (part, main, targets) => {
-                    const factor = 0.1;
-                    const mRate = GS_MAIN_PROBS[part][main] || 0;
-                    const samples = GS_WEIGHTS.filter(s => s.code !== main);
-                    let initCounts = new Array(5).fill(0);
-                    const trials = 200000;
-                    for (let i = 0; i < trials; i++) {
-                        let heap = samples.map(s => ({ c: s.code, k: Math.pow(Math.random(), 1 / s.w) })).sort((a, b) => b.k - a.k).slice(0, 4);
-                        let hits = heap.filter(x => targets.includes(x.c)).length;
-                        initCounts[hits]++;
-                    }
-                    let finalDist = new Array(11).fill(0);
-                    for (let b = 0; b < 5; b++) {
-                        let p = initCounts[b] / trials;
-                        if (p === 0) continue;
-                        for (let u = 0; u < 5; u++) finalDist[b + u] += 0.8 * p * binomial(4, u, b / 4);
-                        for (let u = 0; u < 6; u++) finalDist[b + u] += 0.2 * p * binomial(5, u, b / 4);
-                    }
-                    return { initP: initCounts.map(c => (c / trials) * mRate * factor), finalP: finalDist.map(p => p * mRate * factor) };
-                };
-                const runSingle = () => { loading.value = true; setTimeout(() => { sRes.value = simulate(sCfg.part, sCfg.main, toRaw(sCfg.subs)); loading.value = false; }, 100); };
-                const runGsSingle = () => { loading.value = true; setTimeout(() => { gsRes.value = simulateGs(gsCfg.part, gsCfg.main, toRaw(gsCfg.subs)); loading.value = false; }, 100); };
-                const runPlan = () => {
+                    var mRate = GS_MAIN_PROBS[part][main] || 0;
+                    var subDist = simulateSubstats(GS_WEIGHTS, main, targets);
+                    var finalDist = upgradeDist(subDist);
+                    return { initP: subDist.map(function(p) { return p * mRate * factor; }), finalP: finalDist.map(function(p) { return p * mRate * factor; }) };
+                }
+
+                const runSingle = function() { loading.value = true; setTimeout(function() { sRes.value = simulate(sCfg.part, sCfg.main, toRaw(sCfg.subs)); loading.value = false; }, 100); };
+                const runGsSingle = function() { loading.value = true; setTimeout(function() { gsRes.value = simulateGs(gsCfg.part, gsCfg.main, toRaw(gsCfg.subs)); loading.value = false; }, 100); };
+                const runPlan = function() {
                     loading.value = true;
-                    setTimeout(() => {
-                        let table = [], total = 0;
-                        const targetP = pCfg.target / 100;
-                        ["头部", "手部", "躯干", "脚部", "位面球", "连结绳"].forEach(p => {
-                            const res = simulate(p, pCfg.mains[p], toRaw(pCfg.subs));
-                            let cumP = 0, foundK = 0, finalP = 0;
-                            for (let k = 10; k >= 0; k--) { cumP += res.finalP[k]; if (cumP >= targetP) { foundK = k; finalP = cumP; break; } }
+                    setTimeout(function() {
+                        var table = [], total = 0;
+                        var targetP = pCfg.target / 100;
+                        var planParts = ["\u5934\u90e8", "\u624b\u90e8", "\u8eaf\u5e72", "\u811a\u90e8", "\u4f4d\u9762\u7403", "\u8fde\u7ed3\u7ef3"];
+                        for (var pi = 0; pi < planParts.length; pi++) {
+                            var p = planParts[pi];
+                            var res = simulate(p, pCfg.mains[p], toRaw(pCfg.subs));
+                            var cumP = 0, foundK = 0, finalP = 0;
+                            for (var k = 10; k >= 0; k--) { cumP += res.finalP[k]; if (cumP >= targetP) { foundK = k; finalP = cumP; break; } }
                             total += foundK;
                             table.push({ part: p, main: NAME_MAP[pCfg.mains[p]] || pCfg.mains[p], k: foundK, pStr: (finalP * 100).toFixed(3) + "%", days: calcDays(finalP) });
-                        });
-                        pRes.value = { table, total };
+                        }
+                        pRes.value = { table: table, total: total };
                         loading.value = false;
                     }, 100);
                 };
-                const runGsPlan = () => {
+                const runGsPlan = function() {
                     loading.value = true;
-                    setTimeout(() => {
-                        let table = [], total = 0;
-                        const targetP = gpCfg.target / 100;
-                        ["生之花", "死之羽", "时之沙", "空之杯", "理之冠"].forEach(p => {
-                            const res = simulateGs(p, gpCfg.mains[p], toRaw(gpCfg.subs));
-                            let cumP = 0, foundK = 0, finalP = 0;
-                            for (let k = 10; k >= 0; k--) { cumP += res.finalP[k]; if (cumP >= targetP) { foundK = k; finalP = cumP; break; } }
+                    setTimeout(function() {
+                        var table = [], total = 0;
+                        var targetP = gpCfg.target / 100;
+                        var planParts = ["\u751f\u4e4b\u82b1", "\u6b7b\u4e4b\u7fbd", "\u65f6\u4e4b\u6c99", "\u7a7a\u4e4b\u676f", "\u7406\u4e4b\u51a0"];
+                        for (var pi = 0; pi < planParts.length; pi++) {
+                            var p = planParts[pi];
+                            var res = simulateGs(p, gpCfg.mains[p], toRaw(gpCfg.subs));
+                            var cumP = 0, foundK = 0, finalP = 0;
+                            for (var k = 10; k >= 0; k--) { cumP += res.finalP[k]; if (cumP >= targetP) { foundK = k; finalP = cumP; break; } }
                             total += foundK;
                             table.push({ part: p, main: GS_NAME_MAP[gpCfg.mains[p]] || gpCfg.mains[p], k: foundK, pStr: (finalP * 100).toFixed(3) + "%", days: calcDaysGs(finalP) });
-                        });
-                        gpRes.value = { table, total };
+                        }
+                        gpRes.value = { table: table, total: total };
                         loading.value = false;
                     }, 100);
                 };
 
                 return {
-                    activeMenu, loading,
-                    sCfg, pCfg, sRes, pRes, parts: Object.keys(MAIN_PROBS), partsOrder: ["躯干", "脚部", "位面球", "连结绳"], weights: WEIGHTS, nameMap: NAME_MAP, mainProbs: MAIN_PROBS, runSingle, runPlan, calcDays,
-                    gsCfg, gpCfg, gsRes, gpRes, gsParts: Object.keys(GS_MAIN_PROBS), gsPartsOrder: ["时之沙", "空之杯", "理之冠"], gsWeights: GS_WEIGHTS, gsNameMap: GS_NAME_MAP, gsMainProbs: GS_MAIN_PROBS, runGsSingle, runGsPlan, calcDaysGs
+                    activeMenu: activeMenu, loading: loading,
+                    sCfg: sCfg, pCfg: pCfg, sRes: sRes, pRes: pRes, parts: Object.keys(MAIN_PROBS), partsOrder: ["\u8eaf\u5e72", "\u811a\u90e8", "\u4f4d\u9762\u7403", "\u8fde\u7ed3\u7ef3"], weights: WEIGHTS, nameMap: NAME_MAP, mainProbs: MAIN_PROBS, ANY_MAIN: ANY_MAIN, runSingle: runSingle, runPlan: runPlan, calcDays: calcDays,
+                    gsCfg: gsCfg, gpCfg: gpCfg, gsRes: gsRes, gpRes: gpRes, gsParts: Object.keys(GS_MAIN_PROBS), gsPartsOrder: ["\u65f6\u4e4b\u6c99", "\u7a7a\u4e4b\u676f", "\u7406\u4e4b\u51a0"], gsWeights: GS_WEIGHTS, gsNameMap: GS_NAME_MAP, gsMainProbs: GS_MAIN_PROBS, runGsSingle: runGsSingle, runGsPlan: runGsPlan, calcDaysGs: calcDaysGs
                 };
             }
         }).component('InfoFilled', ElementPlusIconsVue.InfoFilled).use(ElementPlus).mount('#app');
