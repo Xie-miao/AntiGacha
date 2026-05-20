@@ -131,6 +131,7 @@
                             <el-menu-item index="hsr-single-max">单件满级词条分布概率</el-menu-item>
                             <el-menu-item index="hsr-set-max">套装满级词条分布概率</el-menu-item>
                         </el-sub-menu>
+
                         <el-sub-menu index="gs">
                             <template #title>
                                 <img src="./assets/gs-icon.png"
@@ -165,14 +166,14 @@
                                     指全身多个部位有效词条数之和的综合分布概率。它通过对各部位单件概率分布进行卷积计算得出，用于评估达成套装总目标的难易程度。
                                 </li>
                                 <li>
-                                    <b>期望天数：</b>
-                                    基于每日自然回复体力（原神约 180 树脂/9 件金，星铁约 240 开拓力/12 件金）所折算的产出期望，计算公式为：1 / (每日产出数量 * 目标综合概率)。
+                                    <b>期望天数/件数：</b>
+                                    基于每日自然回复体力（原神约 180 树脂/9 件金，星铁约 240 开拓力/12 件金）所折算的产出期望，计算公式为：1 / (每日产出数量 * 目标综合概率)。勾选"定制部位"后，天数改为期望件数，计算公式为：ceil(1 / 概率)。
                                 </li>
                             </ul>
 
                             <h3>2. 计算原理</h3>
                             <ul>
-                                <li><b>计算公式：</b>获得该套装概率 * 获得该部位概率 * 获得所选主属性概率 * 经过模拟得到的所选副词条不同数量的概率 * 强化后副词条命中不同情况的概率
+                                <li><b>计算公式：</b>获得该套装概率 * 获得该部位概率 * 获得所选主属性概率 * 经过模拟得到的所选副词条不同数量的概率 * 强化后副词条命中不同情况的概率。勾选"定制选项"后，对应条件概率视为100%。
                                 </li>
                                 <li><b>权重系统：</b>根据大佬们的数据，不同主副词条的权重不同（如防御力权重远高于双暴）。本工具采用社区实测权重进行计算。</li>
                                 <li><b>蒙特卡洛模拟：</b>副词条生成逻辑复杂（需排除主词条且遵循权重随机抽取），工具通过 200000 次大规模随机模拟来逼近真实掉落分布。</li>
@@ -210,6 +211,10 @@
                                                     }}</el-checkbox>
                                             </el-checkbox-group>
                                         </el-form-item>
+                                        <el-form-item label="定制选项">
+                                            <el-checkbox v-model="sCfg.customPart" @change="sCfg.customPart || (sCfg.customMain = false)">定制部位</el-checkbox>
+                                            <el-checkbox v-model="sCfg.customMain" :disabled="!sCfg.customPart || sCfg.main === ANY_MAIN">定制主属性</el-checkbox>
+                                        </el-form-item>
                                         <el-button type="primary" @click="runSingle" :loading="loading"
                                             style="width:100%">计算</el-button>
                                     </el-form>
@@ -224,17 +229,27 @@
                                             <thead>
                                                 <tr>
                                                     <th>目标词条数</th>
-                                                    <th style="text-align:right">概率 / 期望天数 (12件/天)</th>
+                                                    <th style="text-align:center">概率 / 期望</th>
+                                                    <th style="text-align:right">得更好概率 / 期望</th>
                                                 </tr>
                                             </thead>
                                             <tbody>
                                                 <tr v-for="(p, k) in (activeMenu === 'hsr-single-base' ? sRes.initP : sRes.finalP)"
                                                     v-show="p > 0">
                                                     <td>命中 <b>{{ k }}</b> 词条</td>
-                                                    <td align="right">
-                                                        <span class="prob-value">{{ (p*100).toFixed(4) }}%</span>
-                                                        <el-tag size="small" effect="plain" class="day-tag"
+                                                    <td align="center">
+                                                        <span class="prob-value">{{ (p*100).toFixed(2) }}%</span>
+                                                        <el-tag v-if="!sRes.customPart" size="small" effect="plain" class="day-tag"
                                                             type="info">{{ calcDays(p) }}天</el-tag>
+                                                        <el-tag v-else size="small" effect="plain" class="day-tag"
+                                                            type="info">{{ Math.ceil(1 / p) }}件</el-tag>
+                                                    </td>
+                                                    <td align="right">
+                                                        <span class="prob-value">{{ ((activeMenu === 'hsr-single-base' ? sRes.initCumP[k] : sRes.finalCumP[k]) * 100).toFixed(2) }}%</span>
+                                                        <el-tag v-if="!sRes.customPart" size="small" effect="plain" class="day-tag"
+                                                            type="info">{{ calcDays(activeMenu === 'hsr-single-base' ? sRes.initCumP[k] : sRes.finalCumP[k]) }}天</el-tag>
+                                                        <el-tag v-else size="small" effect="plain" class="day-tag"
+                                                            type="info">{{ Math.ceil(1 / (activeMenu === 'hsr-single-base' ? sRes.initCumP[k] : sRes.finalCumP[k])) }}件</el-tag>
                                                     </td>
                                                 </tr>
                                             </tbody>
@@ -338,18 +353,23 @@
                                             <thead>
                                                 <tr>
                                                     <th>目标词条数</th>
-                                                    <th style="text-align:right">概率 / 期望天数 (9件/天)</th>
+                                                    <th style="text-align:center">概率 / 期望</th>
+                                                    <th style="text-align:right">得更好概率 / 期望</th>
                                                 </tr>
                                             </thead>
                                             <tbody>
                                                 <tr v-for="(p, k) in (activeMenu === 'gs-single-base' ? gsRes.initP : gsRes.finalP)"
                                                     v-show="p > 0">
                                                     <td>命中 <b>{{ k }}</b> 词条</td>
-                                                    <td align="right">
-                                                        <span class="prob-value" style="color:#73d13d">{{
-                                                            (p*100).toFixed(4) }}%</span>
+                                                    <td align="center">
+                                                        <span class="prob-value" style="color:#73d13d">{{ (p*100).toFixed(2) }}%</span>
                                                         <el-tag size="small" effect="plain" class="day-tag"
                                                             type="success">{{ calcDaysGs(p) }}天</el-tag>
+                                                    </td>
+                                                    <td align="right">
+                                                        <span class="prob-value" style="color:#73d13d">{{ ((activeMenu === 'gs-single-base' ? gsRes.initCumP[k] : gsRes.finalCumP[k]) * 100).toFixed(2) }}%</span>
+                                                        <el-tag size="small" effect="plain" class="day-tag"
+                                                            type="success">{{ calcDaysGs(activeMenu === 'gs-single-base' ? gsRes.initCumP[k] : gsRes.finalCumP[k]) }}天</el-tag>
                                                     </td>
                                                 </tr>
                                             </tbody>
@@ -469,11 +489,13 @@
                 const loading = ref(false);
 
                 function defaultMain(probs, part) { var keys = Object.keys(probs[part]); return keys.length === 1 ? keys[0] : ANY_MAIN; }
-                const sCfg = reactive({ part: '\u5934\u90e8', main: defaultMain(MAIN_PROBS, '\u5934\u90e8'), subs: [] });
+                const sCfg = reactive({ part: '\u5934\u90e8', main: defaultMain(MAIN_PROBS, '\u5934\u90e8'), subs: [], customPart: false, customMain: false });
                 const pCfg = reactive({ target: 0.3, mains: { "\u5934\u90e8": ANY_MAIN, "\u624b\u90e8": ANY_MAIN, "\u8eaf\u5e72": ANY_MAIN, "\u811a\u90e8": ANY_MAIN, "\u4f4d\u9762\u7403": ANY_MAIN, "\u8fde\u7ed3\u7ef3": ANY_MAIN }, subs: [] });
                 const sRes = ref(null);
                 const pRes = ref(null);
                 watch(() => sCfg.part, function(newPart) { sCfg.main = defaultMain(MAIN_PROBS, newPart); });
+                watch(() => sCfg.main, function(newMain) { if (newMain === ANY_MAIN) sCfg.customMain = false; });
+
                 const gsCfg = reactive({ part: '\u751f\u4e4b\u82b1', main: defaultMain(GS_MAIN_PROBS, '\u751f\u4e4b\u82b1'), subs: [] });
                 const gpCfg = reactive({ target: 0.3, mains: { "\u751f\u4e4b\u82b1": ANY_MAIN, "\u6b7b\u4e4b\u7fbd": ANY_MAIN, "\u65f6\u4e4b\u6c99": ANY_MAIN, "\u7a7a\u4e4b\u676f": ANY_MAIN, "\u7406\u4e4b\u51a0": ANY_MAIN }, subs: [] });
                 const gsRes = ref(null);
@@ -483,8 +505,9 @@
                 const calcDays = (prob) => { return (!prob || prob <= 0) ? '\u221e' : Math.ceil(1 / (prob * 12)); };
                 const calcDaysGs = (prob) => { return (!prob || prob <= 0) ? '\u221e' : Math.ceil(1 / (prob * 9)); };
 
-                function simulate(part, main, targets) {
+                function simulate(part, main, targets, customPart, customMain) {
                     var factor = (part === '\u4f4d\u9762\u7403' || part === '\u8fde\u7ed3\u7ef3') ? 0.25 : 0.125;
+                    if (customPart) factor = 1;
                     if (main === ANY_MAIN) {
                         var initAgg = new Array(5).fill(0);
                         var finalAgg = new Array(11).fill(0);
@@ -493,6 +516,7 @@
                         for (var mi = 0; mi < mains.length; mi++) {
                             var m = mains[mi];
                             var mRate = MAIN_PROBS[part][m] * (multMap[m] || 1);
+                            if (customMain) mRate = 1;
                             var subDist = simulateSubstats(WEIGHTS, m, targets);
                             var finalDist = upgradeDist(subDist);
                             for (var i = 0; i < 5; i++) initAgg[i] += subDist[i] * mRate * factor;
@@ -501,6 +525,7 @@
                         return { initP: initAgg, finalP: finalAgg };
                     }
                     var mRate = MAIN_PROBS[part][main] || 0;
+                    if (customMain) mRate = 1;
                     var subDist = simulateSubstats(WEIGHTS, main, targets);
                     var finalDist = upgradeDist(subDist);
                     return { initP: subDist.map(function(p) { return p * mRate * factor; }), finalP: finalDist.map(function(p) { return p * mRate * factor; }) };
@@ -529,8 +554,9 @@
                     return { initP: subDist.map(function(p) { return p * mRate * factor; }), finalP: finalDist.map(function(p) { return p * mRate * factor; }) };
                 }
 
-                const runSingle = function() { loading.value = true; setTimeout(function() { sRes.value = simulate(sCfg.part, sCfg.main, toRaw(sCfg.subs)); loading.value = false; }, 100); };
-                const runGsSingle = function() { loading.value = true; setTimeout(function() { gsRes.value = simulateGs(gsCfg.part, gsCfg.main, toRaw(gsCfg.subs)); loading.value = false; }, 100); };
+                const runSingle = function() { loading.value = true; setTimeout(function() { var res = simulate(sCfg.part, sCfg.main, toRaw(sCfg.subs), sCfg.customPart, sCfg.customMain); res.customPart = sCfg.customPart; function cum(arr) { var c = new Array(arr.length); var s = 0; for (var i = arr.length - 1; i >= 0; i--) { s += arr[i]; c[i] = s; } return c; } res.initCumP = cum(res.initP); res.finalCumP = cum(res.finalP); sRes.value = res; loading.value = false; }, 100); };
+                const runGsSingle = function() { loading.value = true; setTimeout(function() { var res = simulateGs(gsCfg.part, gsCfg.main, toRaw(gsCfg.subs)); function cum(arr) { var c = new Array(arr.length); var s = 0; for (var i = arr.length - 1; i >= 0; i--) { s += arr[i]; c[i] = s; } return c; } res.initCumP = cum(res.initP); res.finalCumP = cum(res.finalP); gsRes.value = res; loading.value = false; }, 100); };
+
                 const runPlan = function() {
                     loading.value = true;
                     setTimeout(function() {
