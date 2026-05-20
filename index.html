@@ -200,10 +200,10 @@
                                                 style="width:100%"><el-option v-for="p in parts"
                                                     :value="p"></el-option></el-select></el-form-item>
                                         <el-form-item label="主属性"><el-select v-model="sCfg.main"
-                                                style="width:100%"><el-option label="任意"
-                                                    :value="ANY_MAIN"></el-option><el-option v-for="(v,k) in mainProbs[sCfg.part]"
-                                                    :label="nameMap[k]"
-                                                    :value="k"></el-option></el-select></el-form-item>
+                                                style="width:100%"><el-option v-if="Object.keys(mainProbs[sCfg.part]).length>1"
+                                                    label="任意" :value="ANY_MAIN"></el-option><el-option
+                                                v-for="(v,k) in mainProbs[sCfg.part]" :label="nameMap[k]"
+                                                :value="k"></el-option></el-select></el-form-item>
                                         <el-form-item label="有效词条">
                                             <el-checkbox-group v-model="sCfg.subs">
                                                 <el-checkbox v-for="i in weights" :label="i.code">{{ nameMap[i.code]
@@ -255,8 +255,8 @@
                                                 style="width:100%"></el-input-number>
                                         </el-form-item>
                                         <el-form-item v-for="p in partsOrder" :label="p">
-                                            <el-select v-model="pCfg.mains[p]" style="width:100%"><el-option label="任意"
-                                                    :value="ANY_MAIN"></el-option><el-option
+                                            <el-select v-model="pCfg.mains[p]" style="width:100%"><el-option v-if="Object.keys(mainProbs[p]).length>1"
+                                                    label="任意" :value="ANY_MAIN"></el-option><el-option
                                                     v-for="(v,k) in mainProbs[p]" :label="nameMap[k]"
                                                     :value="k"></el-option></el-select>
                                         </el-form-item>
@@ -314,10 +314,10 @@
                                                 style="width:100%"><el-option v-for="p in gsParts"
                                                     :value="p"></el-option></el-select></el-form-item>
                                         <el-form-item label="主属性"><el-select v-model="gsCfg.main"
-                                                style="width:100%"><el-option label="任意"
-                                                    :value="ANY_MAIN"></el-option><el-option v-for="(v,k) in gsMainProbs[gsCfg.part]"
-                                                    :label="gsNameMap[k]"
-                                                    :value="k"></el-option></el-select></el-form-item>
+                                                style="width:100%"><el-option v-if="Object.keys(gsMainProbs[gsCfg.part]).length>1"
+                                                    label="任意" :value="ANY_MAIN"></el-option><el-option
+                                                v-for="(v,k) in gsMainProbs[gsCfg.part]" :label="gsNameMap[k]"
+                                                :value="k"></el-option></el-select></el-form-item>
                                         <el-form-item label="有效词条">
                                             <el-checkbox-group v-model="gsCfg.subs">
                                                 <el-checkbox v-for="i in gsWeights" :label="i.code">{{ gsNameMap[i.code]
@@ -370,8 +370,8 @@
                                                 style="width:100%"></el-input-number>
                                         </el-form-item>
                                         <el-form-item v-for="p in gsPartsOrder" :label="p">
-                                            <el-select v-model="gpCfg.mains[p]" style="width:100%"><el-option label="任意"
-                                                    :value="ANY_MAIN"></el-option><el-option
+                                            <el-select v-model="gpCfg.mains[p]" style="width:100%"><el-option v-if="Object.keys(gsMainProbs[p]).length>1"
+                                                    label="任意" :value="ANY_MAIN"></el-option><el-option
                                                     v-for="(v,k) in gsMainProbs[p]" :label="gsNameMap[k]"
                                                     :value="k"></el-option></el-select>
                                         </el-form-item>
@@ -433,6 +433,8 @@
         const GS_WEIGHTS = [{ code: 'SM', w: 150 }, { code: 'GJ', w: 150 }, { code: 'FY', w: 150 }, { code: 'SMB', w: 100 }, { code: 'GJB', w: 100 }, { code: 'FYB', w: 100 }, { code: 'JTSX', w: 100 }, { code: 'CNXL', w: 100 }, { code: 'BJL', w: 75 }, { code: 'BJSH', w: 75 }];
 
         const ANY_MAIN = "\u4efb\u610f";
+        const MAIN_MULT = { "\u4f4d\u9762\u7403": { "\u5c5e\u6027\u4f24\u5bb3": 7 } };
+        const GS_MAIN_MULT = { "\u7a7a\u4e4b\u676f": { "YSSH": 7 } };
 
         function factorial(n) { return n <= 1 ? 1 : n * factorial(n - 1); }
         function comb(n, k) { return k < 0 || k > n ? 0 : factorial(n) / (factorial(k) * factorial(n - k)); }
@@ -466,16 +468,17 @@
                 const activeMenu = ref('readme');
                 const loading = ref(false);
 
-                const sCfg = reactive({ part: '\u5934\u90e8', main: 'SM', subs: [] });
-                const pCfg = reactive({ target: 0.3, mains: { "\u5934\u90e8": "SM", "\u624b\u90e8": "GJ", "\u8eaf\u5e72": "SMB", "\u811a\u90e8": "SMB", "\u4f4d\u9762\u7403": "SMB", "\u8fde\u7ed3\u7ef3": "SMB" }, subs: [] });
+                function defaultMain(probs, part) { var keys = Object.keys(probs[part]); return keys.length === 1 ? keys[0] : ANY_MAIN; }
+                const sCfg = reactive({ part: '\u5934\u90e8', main: defaultMain(MAIN_PROBS, '\u5934\u90e8'), subs: [] });
+                const pCfg = reactive({ target: 0.3, mains: { "\u5934\u90e8": ANY_MAIN, "\u624b\u90e8": ANY_MAIN, "\u8eaf\u5e72": ANY_MAIN, "\u811a\u90e8": ANY_MAIN, "\u4f4d\u9762\u7403": ANY_MAIN, "\u8fde\u7ed3\u7ef3": ANY_MAIN }, subs: [] });
                 const sRes = ref(null);
                 const pRes = ref(null);
-                watch(() => sCfg.part, (newPart) => { sCfg.main = Object.keys(MAIN_PROBS[newPart])[0]; });
-                const gsCfg = reactive({ part: '\u751f\u4e4b\u82b1', main: 'SM', subs: [] });
-                const gpCfg = reactive({ target: 0.3, mains: { "\u751f\u4e4b\u82b1": "SM", "\u6b7b\u4e4b\u7fbd": "GJ", "\u65f6\u4e4b\u6c99": "SMB", "\u7a7a\u4e4b\u676f": "SMB", "\u7406\u4e4b\u51a0": "SMB" }, subs: [] });
+                watch(() => sCfg.part, function(newPart) { sCfg.main = defaultMain(MAIN_PROBS, newPart); });
+                const gsCfg = reactive({ part: '\u751f\u4e4b\u82b1', main: defaultMain(GS_MAIN_PROBS, '\u751f\u4e4b\u82b1'), subs: [] });
+                const gpCfg = reactive({ target: 0.3, mains: { "\u751f\u4e4b\u82b1": ANY_MAIN, "\u6b7b\u4e4b\u7fbd": ANY_MAIN, "\u65f6\u4e4b\u6c99": ANY_MAIN, "\u7a7a\u4e4b\u676f": ANY_MAIN, "\u7406\u4e4b\u51a0": ANY_MAIN }, subs: [] });
                 const gsRes = ref(null);
                 const gpRes = ref(null);
-                watch(() => gsCfg.part, (newPart) => { gsCfg.main = Object.keys(GS_MAIN_PROBS[newPart])[0]; });
+                watch(() => gsCfg.part, function(newPart) { gsCfg.main = defaultMain(GS_MAIN_PROBS, newPart); });
 
                 const calcDays = (prob) => { return (!prob || prob <= 0) ? '\u221e' : Math.ceil(1 / (prob * 12)); };
                 const calcDaysGs = (prob) => { return (!prob || prob <= 0) ? '\u221e' : Math.ceil(1 / (prob * 9)); };
@@ -486,9 +489,10 @@
                         var initAgg = new Array(5).fill(0);
                         var finalAgg = new Array(11).fill(0);
                         var mains = Object.keys(MAIN_PROBS[part]);
+                        var multMap = MAIN_MULT[part] || {};
                         for (var mi = 0; mi < mains.length; mi++) {
                             var m = mains[mi];
-                            var mRate = MAIN_PROBS[part][m];
+                            var mRate = MAIN_PROBS[part][m] * (multMap[m] || 1);
                             var subDist = simulateSubstats(WEIGHTS, m, targets);
                             var finalDist = upgradeDist(subDist);
                             for (var i = 0; i < 5; i++) initAgg[i] += subDist[i] * mRate * factor;
@@ -508,9 +512,10 @@
                         var initAgg = new Array(5).fill(0);
                         var finalAgg = new Array(11).fill(0);
                         var mains = Object.keys(GS_MAIN_PROBS[part]);
+                        var multMap = GS_MAIN_MULT[part] || {};
                         for (var mi = 0; mi < mains.length; mi++) {
                             var m = mains[mi];
-                            var mRate = GS_MAIN_PROBS[part][m];
+                            var mRate = GS_MAIN_PROBS[part][m] * (multMap[m] || 1);
                             var subDist = simulateSubstats(GS_WEIGHTS, m, targets);
                             var finalDist = upgradeDist(subDist);
                             for (var i = 0; i < 5; i++) initAgg[i] += subDist[i] * mRate * factor;
